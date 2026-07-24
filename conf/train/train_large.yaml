@@ -1,0 +1,34 @@
+experiment_name: ddp_slurm_large_model
+datamodule:
+  batch_size: 16
+  num_workers: 8
+  shuffle: True
+  drop_last: True
+  pin_memory: True
+checkpoint:
+  monitor: val/loss
+  dirpath: /data/user_data/xoy/articulatory-tts/{experiment_name}/ckpt
+  filename: '{step}-{val/loss:.2f}'
+  every_n_train_steps: 2000
+  save_last: True
+logger:
+  save_dir: /data/user_data/xoy/articulatory-tts/{experiment_name}/log
+optimizer:
+  name: AdamW
+  lr: 2e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1e-8
+trainer:
+  accelerator: gpu
+  devices: 4
+  strategy: ddp
+  accumulate_grad_batches: 2
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: norm
+  check_val_every_n_epoch: null
+  max_steps: 500000
+  val_check_interval: 1000
+  log_every_n_steps: 200
+  sync_batchnorm: True
+

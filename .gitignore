@@ -1,0 +1,12 @@
+**/__pycache__
+__pycache__/
+**/*.py[cod]
+*.py[cod]
+.ruff_cache/
+.venv
+logs
+outputs
+samples
+uv.lock
+lightning_logs/
+mos_eval_data/

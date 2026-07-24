@@ -1,0 +1,25 @@
+tts:
+  num_accents: 1
+  sparc_dim: 14
+  model_dim: 512
+  encoder_n_layers: 6
+  encoder_ff_dim: 2048
+  encoder_kernel_size: 9
+  encoder_ff_kernel_size: 3
+  encoder_n_heads: 4
+  n_aligner_channels: 64
+  predictor_filter_size: 256
+  predictor_kernel_size: 3
+  predictor_dropout: 0.5
+  decoder_n_layers: 6
+  decoder_ff_dim: 2048
+  decoder_kernel_size: 9
+  decoder_ff_kernel_size: 3
+  decoder_n_heads: 4
+  dropout: 0.2
+  use_aligner_durations_if_possible: False
+loss:
+  dur_loss_weight: 1.0
+  sparc_loss_weight: 10.0
+  ctc_loss_weight: 1.0
+  bin_loss_weight: 1.0

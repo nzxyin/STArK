@@ -1,0 +1,15 @@
+torch
+torchaudio
+torchcrepe
+transformers
+huggingface-hub
+numpy
+ipykernel
+pyyaml
+tqdm
+tgt
+tensorboard
+matplotlib
+scipy
+soundfile
+librosa

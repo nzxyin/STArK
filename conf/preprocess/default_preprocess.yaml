@@ -1,0 +1,7 @@
+dataset:
+  dataset_name: "libritts"
+  dataset_root: "/data/user_data/xoy/LibriTTS_R/"
+  train_filename: "train-clean-100.json"
+  dev_filename: "dev-clean.json"
+  test_filename: "test-clean.json"
+  
