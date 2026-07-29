@@ -2,9 +2,14 @@
 
 Copies, for each split's canonical utterance ids (from `{split}.json`), everything needed to
 train STArK except raw audio: `dur`, `spk_emb`, `phn`, `phn_ids`, `normalized_txt`,
-`original_txt`, `emasrc`. The output layout is identical to `{split}-preprocessed/` on disk, so
-it can be pointed at directly as `preprocess.dataset.dataset_root` after download — no custom
-`datasets` loading script needed.
+`original_txt`, `emasrc`.
+
+Files are sharded into 256 hash-bucket subdirectories per modality (`{modality}/{bucket}/{id}.ext`)
+because the Hugging Face Hub's git backend rejects any single directory with more than 10,000
+files, and `train-clean-100` alone has ~33k utterances. `LibriTTSDataset` expects a *flat*
+`{modality}/{id}.ext` layout though, so after downloading, run
+`scripts/materialize_hf_dataset.py` to symlink the sharded download into that flat layout
+(no data is duplicated).
 
 Usage:
     python scripts/build_hf_dataset.py \
@@ -14,6 +19,7 @@ Usage:
         --upload
 """
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -30,6 +36,12 @@ MODALITY_SUFFIXES = {
     "original_txt": ".txt",
     "emasrc": ".ema.npy",
 }
+
+
+def bucket_for(utt_id):
+    """Deterministic 256-way shard, kept small enough that even train-clean-100's ~33k
+    utterances land well under the Hub's 10,000-files-per-directory limit."""
+    return hashlib.md5(utt_id.encode()).hexdigest()[:2]
 
 
 def stage_split(source_root, staging_root, split):
@@ -50,8 +62,9 @@ def stage_split(source_root, staging_root, split):
         }
         if not all(os.path.exists(p) for p in paths.values()):
             continue
+        bucket = bucket_for(utt_id)
         for modality, src_path in paths.items():
-            dst_dir = os.path.join(dst_preprocessed, modality)
+            dst_dir = os.path.join(dst_preprocessed, modality, bucket)
             os.makedirs(dst_dir, exist_ok=True)
             shutil.copy2(src_path, os.path.join(dst_dir, os.path.basename(src_path)))
         staged_ids.append(utt_id)
@@ -86,6 +99,9 @@ def main():
             repo_type="dataset",
         )
         print(f"Uploaded {args.staging_root} to https://huggingface.co/datasets/{args.repo_id}")
+        print("Note: the uploaded layout is sharded (see module docstring) — run "
+              "scripts/materialize_hf_dataset.py after downloading to get the flat "
+              "layout LibriTTSDataset expects.")
 
 
 if __name__ == "__main__":

@@ -84,18 +84,26 @@ for evaluation), using SPARC-derived pseudo-labels as targets.
 
 A precomputed, training-ready feature set (phoneme ids, alignment priors, speaker embeddings,
 and normalized EMA/pitch/loudness targets — everything except the raw audio, which is already
-public) is published as a Hugging Face dataset repo, mirroring the exact on-disk layout
-`LibriTTSDataset` expects (see [Preprocessed data layout](#preprocessed-data-layout) below), so
-no custom `datasets` loading script is needed — just download it and point the training config at
-it:
+public) is published as a Hugging Face dataset repo. On the Hub the files are sharded into 256
+hash-bucket subdirectories per modality (the Hub's git backend rejects any single directory with
+more than 10,000 files, and `train-clean-100` alone has ~33k utterances), so after downloading,
+run `scripts/materialize_hf_dataset.py` to symlink it into the flat layout `LibriTTSDataset`
+actually expects (see [Preprocessed data layout](#preprocessed-data-layout) below) — no data is
+duplicated, and no custom `datasets` loading script is needed:
 
 ```python
 from huggingface_hub import snapshot_download
 snapshot_download(
     repo_id="nzxyin/libritts-r-stark",  # will move to a Lab-MSP namespace later
     repo_type="dataset",
-    local_dir="/path/to/LibriTTS_R",
+    local_dir="/path/to/libritts-r-stark-download",
 )
+```
+
+```bash
+python scripts/materialize_hf_dataset.py \
+    --downloaded_root /path/to/libritts-r-stark-download \
+    --dataset_root /path/to/LibriTTS_R
 ```
 
 Raw LibriTTS-R audio itself doesn't need to be re-downloaded through this dataset — it's already
