@@ -9,7 +9,7 @@ import json
 
 EPS = 1e-8
 
-def process_sparc_data(sparc_dir, preprocessed_dir):
+def process_sparc_data(sparc_dir, preprocessed_dir, ema_output_dirname="emasrc"):
     ema_dir = os.path.join(sparc_dir, "emasrc")
     spk_emb_dir = os.path.join(sparc_dir, "spk_emb")
     pitch_stats_output = {}
@@ -36,7 +36,7 @@ def process_sparc_data(sparc_dir, preprocessed_dir):
 
             assert processed_sparc.shape[1] == 14, "Processed SPARC data must have 14 dimensions"
 
-            save_path = os.path.join(preprocessed_dir, "ema_preprocessed", file.replace('.npy', '.ema.npy'))
+            save_path = os.path.join(preprocessed_dir, ema_output_dirname, file.replace('.npy', '.ema.npy'))
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             np.save(save_path, processed_sparc)
 
@@ -63,5 +63,8 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description="Process SPARC data")
     arg_parser.add_argument("--sparc_dir", type=str, required=True, help="Path to the SPARC data directory")
     arg_parser.add_argument("--preprocessed_dir", type=str, required=True, help="Path to the preprocessed data directory")
+    arg_parser.add_argument("--ema_output_dirname", type=str, default="emasrc",
+                             help="Subdirectory name (under preprocessed_dir) to write normalized EMA features to. "
+                                  "LibriTTSDataset expects 'emasrc' (the default); LJSpeechDataset expects 'ema_preprocessed'.")
     args = arg_parser.parse_args()
-    process_sparc_data(args.sparc_dir, args.preprocessed_dir)
+    process_sparc_data(args.sparc_dir, args.preprocessed_dir, args.ema_output_dirname)

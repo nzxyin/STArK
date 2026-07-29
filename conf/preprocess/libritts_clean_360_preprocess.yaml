@@ -1,6 +1,6 @@
 dataset:
   dataset_name: "libritts"
-  dataset_root: "/data/user_data/xoy/LibriTTS_R/"
+  dataset_root: "/path/to/LibriTTS_R/" # override with preprocess.dataset.dataset_root=... or edit in place
   train_filename: "train-clean-360.json"
   dev_filename: "dev-clean.json"
   test_filename: "test-clean.json"

@@ -1,3 +1,4 @@
+import os
 import tts
 import torch
 import hydra
@@ -17,11 +18,20 @@ def train(config: DictConfig):
         callbacks=[ModelCheckpoint(**config['train']['checkpoint']),],
         logger=TensorBoardLogger(**config['train']['logger']),
     )
-    datamodule = tts.LibriTTSDataModule(config)
-    datamodule = tts.LJSpeechDataModule(config)
+    dataset_name = config['preprocess']['dataset']['dataset_name']
+    if dataset_name == 'libritts':
+        datamodule = tts.LibriTTSDataModule(config)
+    elif dataset_name == 'ljspeech':
+        datamodule = tts.LJSpeechDataModule(config)
+    else:
+        raise ValueError(f"Unknown dataset_name: {dataset_name}")
     model = tts.LitTTS(config)
-    # trainer.fit(model, datamodule=datamodule, ckpt_path=f'{config["train"]["checkpoint"]["dirpath"]}/last.ckpt', weights_only=False)
-    trainer.fit(model, datamodule=datamodule, ckpt_path=None, weights_only=False)
+    # Auto-resume from the last checkpoint if one exists, so this is safe to
+    # requeue on a preemptible partition (a preempted job restarts this
+    # script from scratch, but should pick training back up, not discard it).
+    last_ckpt_path = f'{config["train"]["checkpoint"]["dirpath"]}/last.ckpt'
+    ckpt_path = last_ckpt_path if os.path.exists(last_ckpt_path) else None
+    trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path, weights_only=False)
 
 @hydra.main(version_base=None, config_path="./conf", config_name="config")
 def main(config: DictConfig):

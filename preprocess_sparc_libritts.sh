@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=process_sparc_array
-#SBATCH --output=logs/preprocess/process_sparc_%A_%a.out
-#SBATCH --error=logs/preprocess/process_sparc_%A_%a.err
+#SBATCH --output=/path/to/slurm_logs/preprocess/process_sparc_%A_%a.out # replace with your own NFS log dir
+#SBATCH --error=/path/to/slurm_logs/preprocess/process_sparc_%A_%a.err  # replace with your own NFS log dir
 #SBATCH --partition=array
 #SBATCH --array=0-3
 #SBATCH --time=1-00:00:00
@@ -9,12 +9,14 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=xoy@andrew.cmu.edu
+# Uncomment and set to your own email to get job-completion notifications:
+# #SBATCH --mail-type=END,FAIL
+# #SBATCH --mail-user=you@example.com
 
-source /home/xoy/articulatory-tts/.venv/bin/activate
+export PATH="$HOME/.local/bin:$PATH"
+cd "$SLURM_SUBMIT_DIR"
 
-LIBRITTS_ROOT="/data/user_data/xoy/LibriTTS_R/"
+LIBRITTS_ROOT="/path/to/LibriTTS_R/" # replace with your own dataset root
 SPARC_DIRS=("dev-clean-sparc" "test-clean-sparc" "train-clean-100-sparc" "train-clean-360-sparc")
 SPARC_DIR=${LIBRITTS_ROOT}${SPARC_DIRS[${SLURM_ARRAY_TASK_ID}]}
 PREPROCESS_DIRS=("dev-clean-preprocessed" "test-clean-preprocessed" "train-clean-100-preprocessed" "train-clean-360-preprocessed")

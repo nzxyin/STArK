@@ -7,12 +7,12 @@ datamodule:
   pin_memory: True
 checkpoint:
   monitor: val/loss
-  dirpath: /data/user_data/xoy/articulatory-tts/{experiment_name}/ckpt
+  dirpath: /path/to/output/{experiment_name}/ckpt # override with train.checkpoint.dirpath=... or edit in place
   filename: '{step}-{val/loss:.2f}'
   every_n_train_steps: 2000
   save_last: True
 logger:
-  save_dir: /data/user_data/xoy/articulatory-tts/{experiment_name}/log
+  save_dir: /path/to/output/{experiment_name}/log # override with train.logger.save_dir=... or edit in place
 optimizer:
   name: AdamW
   lr: 2e-4
