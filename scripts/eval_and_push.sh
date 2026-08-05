@@ -15,7 +15,9 @@ export PATH="$HOME/.local/bin:$PATH"
 cd "$SLURM_SUBMIT_DIR"
 
 uv run python scripts/eval_and_push.py \
-    --ckpt_path /data/user_data/xoy/articulatory-tts/ddp_slurm_large_model/ckpt/last.ckpt \
+    --ckpt_path /data/user_data/xoy/articulatory-tts/stark_large_100k/ckpt/last.ckpt \
     --repo_id nzxyin/stark-large \
     --dataset_root /data/user_data/xoy/LibriTTS_R/ \
-    --overrides model=large_model train=train_large
+    --overrides model=large_model train=train_large \
+        train.checkpoint.dirpath=/data/user_data/xoy/articulatory-tts/stark_large_100k/ckpt \
+        train.logger.save_dir=/data/user_data/xoy/articulatory-tts/stark_large_100k/log
