@@ -7,6 +7,7 @@ SPARC vocoder.
 
 > STArK: Towards Synthesizing Articulatory Kinematics from Text
 > Xavier Yin, Carlos Busso — Interspeech 2026
+> [Paper (PDF)](https://lab-msp.com/MSP/publications/Yin_2026.pdf) — temporary link, pending official proceedings
 
 If you use this code, please cite:
 
