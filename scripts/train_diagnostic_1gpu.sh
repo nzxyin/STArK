@@ -2,7 +2,7 @@
 #SBATCH --job-name=stark_diag_1gpu
 #SBATCH --output=/data/user_data/xoy/slurm_logs/stark_diag_1gpu_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_diag_1gpu_%j.err
-#SBATCH --partition=debug
+#SBATCH --partition=general
 #SBATCH --time=00:30:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
@@ -29,8 +29,9 @@ uv run train.py train=train_large model=large_model \
     train.trainer.strategy=auto \
     train.trainer.max_steps=200 \
     train.trainer.val_check_interval=1000000 \
+    +train.trainer.num_sanity_val_steps=0 \
     train.checkpoint.every_n_train_steps=20 \
-    train.datamodule.num_workers=4 \
+    train.datamodule.num_workers=0 \
     preprocess.dataset.dataset_root=/data/user_data/xoy/LibriTTS_R/ \
     train.checkpoint.dirpath=/data/user_data/xoy/articulatory-tts/stark_diag_1gpu/ckpt \
     train.logger.save_dir=/data/user_data/xoy/articulatory-tts/stark_diag_1gpu/log

@@ -6,7 +6,7 @@
 #SBATCH --time=12:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:L40S:1
 
 # Needs a Hugging Face token cached (e.g. via `hf auth login`) under HF_HOME below.
 export HF_HOME="/data/user_data/$USER/.hf_cache"

@@ -6,7 +6,7 @@
 #SBATCH --time=5-00:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:L40S:4
 #SBATCH --requeue
 
 # Same config as train_preempt.sh (model=large_model train=train_large), but capped at
