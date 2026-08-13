@@ -12,7 +12,14 @@ Usage:
 import argparse
 import json
 import os
+import sys
 import tempfile
+
+# tts/model.py does `from utils import ...`, a bare import of the repo-root utils.py — that
+# only resolves if the repo root is on sys.path. Running scripts directly (`python train.py`)
+# gets this for free; running a script from scripts/ (`python scripts/eval_and_push.py`) does
+# not, since Python puts the *script's* directory on sys.path[0], not the repo root.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import torch
@@ -83,7 +90,9 @@ def evaluate(config, downloaded_ckpt_path, use_aligner_durations, dataset_root, 
     config["train"]["trainer"]["devices"] = 1
     config["train"]["trainer"]["strategy"] = "auto"
 
-    model = tts.LitTTS.load_from_checkpoint(downloaded_ckpt_path, config=config, map_location="cpu")
+    # weights_only=False: the checkpoint's saved hyperparameters include a Hydra/OmegaConf
+    # DictConfig, which PyTorch >=2.6's weights_only=True default refuses to unpickle.
+    model = tts.LitTTS.load_from_checkpoint(downloaded_ckpt_path, config=config, map_location="cpu", weights_only=False)
     trainer = L.Trainer(**config["train"]["trainer"])
     datamodule = tts.LibriTTSDataModule(config)
     outputs = trainer.predict(model, datamodule)

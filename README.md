@@ -44,15 +44,10 @@ uv sync
 ```
 
 Phonemization uses [Phonemizer](https://github.com/bootphon/phonemizer) with the
-[eSpeak NG](https://github.com/espeak-ng/espeak-ng) backend, which is a system binary and must be
-installed separately:
-
-```bash
-# Debian/Ubuntu
-sudo apt-get install espeak-ng
-# macOS
-brew install espeak-ng
-```
+[eSpeak NG](https://github.com/espeak-ng/espeak-ng) backend. `uv sync` pulls in
+[`espeakng-loader`](https://pypi.org/project/espeakng-loader/), a bundled build of the eSpeak NG
+library, so no system-level install or `sudo` access is required — `src/tts/g2p.py` points
+Phonemizer at it automatically.
 
 ## Reproducing the paper
 
@@ -179,10 +174,41 @@ classes expect different EMA output directory names (`emasrc` vs `ema_preprocess
 
 ## Inference
 
-See [`testing.ipynb`](testing.ipynb) for the full inference + evaluation pipeline: loading a
-trained checkpoint, predicting articulatory features, synthesizing speech via the frozen SPARC
-vocoder, and computing all metrics reported in the paper. Set the data/output paths in the first
-few cells before running.
+### CLI
+
+[`scripts/stark_cli.py`](scripts/stark_cli.py) is a standalone inference CLI — by default it
+downloads the trained checkpoint from the Hugging Face Hub
+([`nzxyin/stark-large`](https://huggingface.co/nzxyin/stark-large)), so no local training run or
+Hydra config is needed. Pass `--checkpoint` to use a local `.ckpt` instead (e.g. one you trained
+yourself).
+
+Text-to-phoneme conversion ([`src/tts/g2p.py`](src/tts/g2p.py)) uses Phonemizer/eSpeak-NG to
+reproduce the phoneme convention the model was trained on (word boundaries, stress marks,
+punctuation-to-silence-token mapping) — see that module's docstring for details; it's a
+best-effort reproduction reverse-engineered from the training data, not guaranteed byte-identical
+for every input.
+
+Voice identity isn't something STArK itself conditions on (per the paper, it's speaker-agnostic
+by design) — it predicts normalized articulatory kinematics from text, and voice cloning happens
+at the SPARC vocoder stage: supply a short reference clip (`--reference-audio`) or a speaker from
+the packaged eval set (`--reference-utt-id` + `--dataset-root`, see [Data](#data) above) to
+control the output voice.
+
+```bash
+# Text-to-speech, cloning a voice from a reference clip
+python scripts/stark_cli.py synthesize "Hello, this is a test." \
+    --reference-audio my_voice.wav --output out.wav
+
+# Plot the predicted articulatory trajectories for some text
+python scripts/stark_cli.py visualize "Hello, this is a test." --output trajectories.png
+```
+
+### Paper evaluation
+
+See [`testing.ipynb`](testing.ipynb) for the full inference + evaluation pipeline used to
+produce the paper's numbers: loading a trained checkpoint, predicting articulatory features,
+synthesizing speech via the frozen SPARC vocoder, and computing all reported metrics. Set the
+data/output paths in the first few cells before running.
 
 ## License
 
