@@ -9,6 +9,67 @@ SPARC vocoder.
 > Xavier Yin, Carlos Busso — Interspeech 2026
 > [Paper (PDF)](https://lab-msp.com/MSP/publications/Yin_2026.pdf) — temporary link, pending official proceedings
 
+Training your own model or reproducing the paper's results from scratch? See
+[`TRAINING.md`](TRAINING.md) — this README covers installation and using a trained checkpoint
+for inference.
+
+## Installation
+
+Tested on Python 3.11–3.12 (`pyproject.toml` requires `>=3.11,<3.13`).
+
+```bash
+uv sync
+```
+
+Phonemization uses [Phonemizer](https://github.com/bootphon/phonemizer) with the
+[eSpeak NG](https://github.com/espeak-ng/espeak-ng) backend. `uv sync` pulls in
+[`espeakng-loader`](https://pypi.org/project/espeakng-loader/), a bundled build of the eSpeak NG
+library, so no system-level install or `sudo` access is required — `src/tts/g2p.py` points
+Phonemizer at it automatically.
+
+## Inference
+
+[`scripts/stark_cli.py`](scripts/stark_cli.py) is a standalone inference CLI — by default it
+downloads the trained checkpoint from the Hugging Face Hub
+([`nzxyin/stark-large`](https://huggingface.co/nzxyin/stark-large)), so no local training run or
+Hydra config is needed. Pass `--checkpoint` to use a local `.ckpt` instead (e.g. one you trained
+yourself, see [`TRAINING.md`](TRAINING.md)).
+
+Text-to-phoneme conversion ([`src/tts/g2p.py`](src/tts/g2p.py)) uses Phonemizer/eSpeak-NG to
+reproduce the phoneme convention the model was trained on (word boundaries, stress marks,
+punctuation-to-silence-token mapping) — see that module's docstring for details; it's a
+best-effort reproduction reverse-engineered from the training data, not guaranteed byte-identical
+for every input.
+
+Voice identity isn't something STArK itself conditions on (per the paper, it's speaker-agnostic
+by design) — it predicts normalized articulatory kinematics from text, and voice cloning happens
+at the SPARC vocoder stage: supply a short reference clip (`--reference-audio`) or a speaker from
+the packaged eval set (`--reference-utt-id` + `--dataset-root`, see [`TRAINING.md`](TRAINING.md#data))
+to control the output voice.
+
+```bash
+# Text-to-speech, cloning a voice from a reference clip
+python scripts/stark_cli.py synthesize "Hello, this is a test." \
+    --reference-audio my_voice.wav --output out.wav
+
+# Plot the predicted articulatory trajectories for some text
+python scripts/stark_cli.py visualize "Hello, this is a test." --output trajectories.png
+```
+
+## Example visualizations
+
+Predicted articulatory trajectories (all 12 EMA channels + pitch + loudness) for a single
+utterance, as produced by `stark_cli.py visualize`:
+
+![Example predicted EMA trajectories](example_ema.png)
+
+STArK's predictions (green) closely track ground-truth SPARC features (purple) across the full
+trajectory, with (orange, "STARK+align") and without (green) ground-truth-aligned durations:
+
+![STArK predictions vs. ground-truth SPARC](ema_comparison.png)
+
+## Citation
+
 If you use this code, please cite:
 
 ```bibtex
@@ -34,181 +95,6 @@ STArK builds directly on SPARC; if you use this code, please also cite the SPARC
   year    = {2024}
 }
 ```
-
-## Setup
-
-Tested on Python 3.11–3.12 (`pyproject.toml` requires `>=3.11,<3.13`).
-
-```bash
-uv sync
-```
-
-Phonemization uses [Phonemizer](https://github.com/bootphon/phonemizer) with the
-[eSpeak NG](https://github.com/espeak-ng/espeak-ng) backend. `uv sync` pulls in
-[`espeakng-loader`](https://pypi.org/project/espeakng-loader/), a bundled build of the eSpeak NG
-library, so no system-level install or `sudo` access is required — `src/tts/g2p.py` points
-Phonemizer at it automatically.
-
-## Reproducing the paper
-
-The exact configuration used for the paper's reported results is `model=large_model
-train=train_large` (with the default `preprocess=default_preprocess`), evaluated at
-**checkpoint step 32000**. This also matches the paper's stated 10,000-step warmup:
-`train_large`'s `max_steps=500000` × the model's 2% warmup fraction = 10,000 steps.
-
-```bash
-python train.py train=train_large model=large_model
-```
-
-`train_preempt.sh` runs this exact command on the `preempt` SLURM partition (checkpointed every
-2000 steps, auto-resumes from the last checkpoint so it's safe to preempt/requeue). Everything
-else under `conf/` — `small_model`, `spk_dur_cond_model`, `spk_full_cond_model`,
-`libritts_clean_360_preprocess`, `ljspeech_preprocess`, `ljspeech_large` (and `train.sh`, which
-runs the LJSpeech config) — are separate, unpublished experiments in this same codebase, **not**
-used for the Interspeech 2026 paper.
-
-Inference and all reported metrics (DTW/Pearson correlation against SPARC-extracted ground
-truth, DNSMOS, WER, SECS, human NMOS) are computed in [`testing.ipynb`](testing.ipynb); see the
-top of that notebook for the one place to set your local data/checkpoint paths.
-
-## Data
-
-The paper trains and evaluates only on LibriTTS-R's `train-clean-100` (+ `dev-clean`/`test-clean`
-for evaluation), using SPARC-derived pseudo-labels as targets.
-
-### Quick start: precomputed features (recommended)
-
-A precomputed, training-ready feature set (phoneme ids, alignment priors, speaker embeddings,
-and normalized EMA/pitch/loudness targets — everything except the raw audio, which is already
-public) is published as a Hugging Face dataset repo. On the Hub the files are sharded into 256
-hash-bucket subdirectories per modality (the Hub's git backend rejects any single directory with
-more than 10,000 files, and `train-clean-100` alone has ~33k utterances), so after downloading,
-run `scripts/materialize_hf_dataset.py` to symlink it into the flat layout `LibriTTSDataset`
-actually expects (see [Preprocessed data layout](#preprocessed-data-layout) below) — no data is
-duplicated, and no custom `datasets` loading script is needed:
-
-```python
-from huggingface_hub import snapshot_download
-snapshot_download(
-    repo_id="nzxyin/libritts-r-stark",  # will move to a Lab-MSP namespace later
-    repo_type="dataset",
-    local_dir="/path/to/libritts-r-stark-download",
-)
-```
-
-```bash
-python scripts/materialize_hf_dataset.py \
-    --downloaded_root /path/to/libritts-r-stark-download \
-    --dataset_root /path/to/LibriTTS_R
-```
-
-Raw LibriTTS-R audio itself doesn't need to be re-downloaded through this dataset — it's already
-public (CC-BY-4.0) as [`mythicinfinity/libritts_r`](https://huggingface.co/datasets/mythicinfinity/libritts_r)
-if you need the `.wav` files for anything beyond training (e.g. listening to ground truth).
-
-Once downloaded, point `preprocess.dataset.dataset_root` (in `conf/preprocess/default_preprocess.yaml`,
-or via `preprocess.dataset.dataset_root=...` on the command line) at that directory — it already
-contains `train-clean-100-preprocessed/`, `dev-clean-preprocessed/`, `test-clean-preprocessed/`,
-and the three `{split}.json` split manifests.
-
-### Preprocessed data layout
-
-Each `{split}-preprocessed/` directory (`train-clean-100`, `dev-clean`, `test-clean`) is flat —
-there's no `sparc/` sub-nesting:
-
-```
-LibriTTS_R/
-├── train-clean-100.json          # canonical list of usable utterance ids for this split
-├── dev-clean.json
-├── test-clean.json
-├── train-clean-100-preprocessed/
-│   ├── wav/                      # {id}.wav
-│   ├── original_txt/             # {id}.txt
-│   ├── normalized_txt/           # {id}.txt
-│   ├── phn/                      # {id}.phones.txt   — phoneme sequence (text)
-│   ├── phn_ids/                  # {id}.phones.npy   — phoneme ids, shape (T_text,)
-│   ├── dur/                      # {id}.dur.npy      — beta-binomial alignment prior, shape (T_sparc, T_text)
-│   └── emasrc/                   # {id}.ema.npy      — 14-dim EMA+pitch+loudness targets, shape (T_sparc, 14)
-├── dev-clean-preprocessed/       # same structure
-└── test-clean-preprocessed/      # same structure
-```
-
-`dur/` is **not** a ground-truth forced alignment — it's the beta-binomial prior
-(`src/tts/dataset.py`'s `BetaBinomialInterpolator`) fed to STArK's unsupervised aligner during
-training, matching the paper's "One TTS Alignment"-style approach (no external aligner
-dependency).
-
-### Regenerating the data from scratch
-
-Not required to train (the Hugging Face dataset above is training-ready), but documented here
-for provenance/verification. Starting from raw LibriTTS-R audio + transcripts:
-
-1. **SPARC feature extraction** (raw audio → 15-dim EMA/pitch/periodicity/loudness + 64-dim
-   speaker embeddings): run the [SPARC](https://github.com/nzxyin/Speech-Articulatory-Coding)
-   `en+` model over each split's audio to produce a `{split}-sparc/emasrc/` and
-   `{split}-sparc/spk_emb/` directory (15-dim EMA features per utterance, before pitch
-   normalization). This step isn't scripted in this repo — see the SPARC repo directly.
-2. **Pitch normalization + speaker embedding staging** ([`process_sparc.py`](process_sparc.py),
-   driven by [`preprocess_sparc_libritts.sh`](preprocess_sparc_libritts.sh) as a SLURM array job
-   over all four LibriTTS-R splits): reads `{split}-sparc/emasrc/` (15-dim), log-normalizes pitch
-   by each utterance's median pitch (Eq. 1 in the paper), drops the periodicity channel to
-   produce the 14-dim target, and writes `{split}-preprocessed/emasrc/` +
-   `{split}-preprocessed/spk_emb/` + a `pitch_stats.json` (per-utterance median pitch, needed to
-   denormalize predicted pitch back to a target speaker's range at inference time).
-3. **Phonemization** ([`ipa.py`](ipa.py) defines the IPA symbol set and phoneme id mapping; see
-   `preprocess.ipynb` for example driver code): text → phoneme sequence via Phonemizer/eSpeak-NG
-   → `{split}-preprocessed/phn/` (text) and `phn_ids/` (ids).
-4. **Alignment prior** (`src/tts/dataset.py`'s `BetaBinomialInterpolator`; see `preprocess.ipynb`
-   for example driver code): computed from `phn_ids/` length and `{split}-sparc/emasrc/` length
-   → `{split}-preprocessed/dur/`.
-5. Raw `.wav`/`original_txt`/`normalized_txt` are staged into `{split}-preprocessed/` directly
-   from the LibriTTS-R corpus (same per-utterance ids).
-6. Each `{split}.json` is the list of utterance ids that have **all** of `dur`/`emasrc`/`spk_emb`
-   successfully produced (a small number of utterances — a few dozen out of ~33k for
-   `train-clean-100` — fail SPARC extraction/alignment and are excluded).
-
-`process_sparc.py` is shared between the LibriTTS-R and LJSpeech pipelines; the two `Dataset`
-classes expect different EMA output directory names (`emasrc` vs `ema_preprocessed`), so pass
-`--ema_output_dirname` accordingly (`preprocess_sparc_libritts.sh` uses the `emasrc` default;
-`preprocess_sparc_ljspeech.sh` passes `--ema_output_dirname ema_preprocessed`).
-
-## Inference
-
-### CLI
-
-[`scripts/stark_cli.py`](scripts/stark_cli.py) is a standalone inference CLI — by default it
-downloads the trained checkpoint from the Hugging Face Hub
-([`nzxyin/stark-large`](https://huggingface.co/nzxyin/stark-large)), so no local training run or
-Hydra config is needed. Pass `--checkpoint` to use a local `.ckpt` instead (e.g. one you trained
-yourself).
-
-Text-to-phoneme conversion ([`src/tts/g2p.py`](src/tts/g2p.py)) uses Phonemizer/eSpeak-NG to
-reproduce the phoneme convention the model was trained on (word boundaries, stress marks,
-punctuation-to-silence-token mapping) — see that module's docstring for details; it's a
-best-effort reproduction reverse-engineered from the training data, not guaranteed byte-identical
-for every input.
-
-Voice identity isn't something STArK itself conditions on (per the paper, it's speaker-agnostic
-by design) — it predicts normalized articulatory kinematics from text, and voice cloning happens
-at the SPARC vocoder stage: supply a short reference clip (`--reference-audio`) or a speaker from
-the packaged eval set (`--reference-utt-id` + `--dataset-root`, see [Data](#data) above) to
-control the output voice.
-
-```bash
-# Text-to-speech, cloning a voice from a reference clip
-python scripts/stark_cli.py synthesize "Hello, this is a test." \
-    --reference-audio my_voice.wav --output out.wav
-
-# Plot the predicted articulatory trajectories for some text
-python scripts/stark_cli.py visualize "Hello, this is a test." --output trajectories.png
-```
-
-### Paper evaluation
-
-See [`testing.ipynb`](testing.ipynb) for the full inference + evaluation pipeline used to
-produce the paper's numbers: loading a trained checkpoint, predicting articulatory features,
-synthesizing speech via the frozen SPARC vocoder, and computing all reported metrics. Set the
-data/output paths in the first few cells before running.
 
 ## License
 
