@@ -22,10 +22,15 @@ uv sync
 ```
 
 Phonemization uses [Phonemizer](https://github.com/bootphon/phonemizer) with the
-[eSpeak NG](https://github.com/espeak-ng/espeak-ng) backend. `uv sync` pulls in
-[`espeakng-loader`](https://pypi.org/project/espeakng-loader/), a bundled build of the eSpeak NG
-library, so no system-level install or `sudo` access is required — `src/tts/g2p.py` points
-Phonemizer at it automatically.
+[eSpeak NG](https://github.com/espeak-ng/espeak-ng) backend, which is a system binary and must be
+installed separately:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install espeak-ng
+# macOS
+brew install espeak-ng
+```
 
 ## Inference
 

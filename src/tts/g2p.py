@@ -1,8 +1,8 @@
 """Text -> phoneme-id G2P for STArK inference.
 
-Uses Phonemizer with the eSpeak NG backend (via the bundled `espeakng-loader` library, so no
-system-level espeak-ng install is required) to reproduce the phoneme convention `ipa.py`'s
-vocabulary and the training data were built on:
+Uses Phonemizer with the eSpeak NG backend (requires the `espeak-ng` system package — see
+README's Installation section) to reproduce the phoneme convention `ipa.py`'s vocabulary and the
+training data were built on:
   - words are whitespace-tokenized from espeak's IPA output (espeak itself sometimes glues
     adjacent function words with no space, e.g. "from the" -> "fɹʌmðə" — that's expected and
     matches the training data, which used the same tokenization)
@@ -45,23 +45,8 @@ def _get_backend():
     global _backend
     if _backend is not None:
         return _backend
-    import os
-    import espeakng_loader
-
-    # Set these before importing phonemizer's espeak backend — env vars proved more reliable
-    # across phonemizer versions than EspeakWrapper.set_library()/set_data_path() alone (the
-    # bundled library's compiled-in default data path doesn't always get overridden by the
-    # wrapper API depending on version).
-    os.environ.setdefault("PHONEMIZER_ESPEAK_LIBRARY", espeakng_loader.get_library_path())
-    os.environ.setdefault("PHONEMIZER_ESPEAK_PATH", espeakng_loader.get_library_path())
-    os.environ.setdefault("ESPEAK_DATA_PATH", espeakng_loader.get_data_path())
-
     from phonemizer.backend import EspeakBackend
-    from phonemizer.backend.espeak.wrapper import EspeakWrapper
 
-    EspeakWrapper.set_library(espeakng_loader.get_library_path())
-    if hasattr(EspeakWrapper, "set_data_path"):  # not present in all phonemizer versions
-        EspeakWrapper.set_data_path(espeakng_loader.get_data_path())
     _backend = EspeakBackend(
         "en-us",
         preserve_punctuation=True,
