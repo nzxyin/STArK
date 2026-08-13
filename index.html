@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STArK: Towards Synthesizing Articulatory Kinematics from Text</title>
+<meta name="description" content="Official project page for STArK (Interspeech 2026) — a non-autoregressive model that generates articulatory kinematics directly from text and resynthesizes speech via a frozen SPARC vocoder.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f6f7f9;
+    --text: #1a1d23;
+    --text-muted: #5b6270;
+    --border: #e2e5ea;
+    --accent: #2f6f4f;
+    --accent-text: #ffffff;
+    --link: #1f5f8b;
+    --table-header-bg: #eef1f4;
+    --code-bg: #f0f1f3;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --max-width: 880px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a;
+      --bg-alt: #1b1e24;
+      --text: #eceef1;
+      --text-muted: #9aa1ad;
+      --border: #2c3038;
+      --accent: #4fae7f;
+      --accent-text: #0b120e;
+      --link: #6cb6e0;
+      --table-header-bg: #20242b;
+      --code-bg: #1c1f26;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a;
+    --bg-alt: #1b1e24;
+    --text: #eceef1;
+    --text-muted: #9aa1ad;
+    --border: #2c3038;
+    --accent: #4fae7f;
+    --accent-text: #0b120e;
+    --link: #6cb6e0;
+    --table-header-bg: #20242b;
+    --code-bg: #1c1f26;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  main {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 3rem 1.5rem 5rem;
+  }
+  header.hero {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  h1 {
+    font-size: 1.9rem;
+    line-height: 1.3;
+    margin: 0 0 0.75rem;
+  }
+  .authors {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    margin: 0 0 0.25rem;
+  }
+  .venue {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0 0 1.5rem;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1.1rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+  }
+  .links a.primary {
+    background: var(--accent);
+    color: var(--accent-text);
+    border-color: var(--accent);
+  }
+  .links a:hover { filter: brightness(0.95); }
+
+  section { margin: 3rem 0; }
+  h2 {
+    font-size: 1.3rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+  p { color: var(--text); }
+  .muted { color: var(--text-muted); }
+
+  a { color: var(--link); }
+
+  figure {
+    margin: 1.5rem 0;
+    text-align: center;
+  }
+  figure img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  figcaption {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    margin-top: 0.6rem;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.88rem;
+    min-width: 560px;
+  }
+  caption {
+    text-align: left;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 0.6rem 0.8rem 0;
+    caption-side: top;
+  }
+  th, td {
+    padding: 0.55rem 0.7rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  thead th {
+    background: var(--table-header-bg);
+    font-weight: 600;
+  }
+  tbody th {
+    text-align: left;
+    font-weight: 600;
+    background: var(--table-header-bg);
+  }
+
+  .samples {
+    display: grid;
+    gap: 1.5rem;
+  }
+  .sample-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.3rem;
+    background: var(--bg-alt);
+  }
+  .sample-text {
+    font-style: italic;
+    margin: 0 0 0.9rem;
+    font-size: 1.02rem;
+  }
+  .sample-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin: 0.5rem 0;
+    flex-wrap: wrap;
+  }
+  .sample-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    min-width: 9rem;
+  }
+  audio { flex: 1 1 260px; min-width: 220px; max-width: 100%; height: 36px; }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.82rem;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <h1>STArK: Towards Synthesizing Articulatory Kinematics from Text</h1>
+  <p class="authors">Xavier Yin, Carlos Busso</p>
+  <p class="venue">Language Technologies Institute, Carnegie Mellon University · Interspeech 2026</p>
+  <nav class="links">
+    <a class="primary" href="https://lab-msp.com/MSP/publications/Yin_2026.pdf">📄 Paper (PDF)</a>
+    <a href="https://github.com/Lab-MSP/STArK">💻 Code</a>
+    <a href="https://lab-msp.com">🔬 MSP Lab</a>
+  </nav>
+</header>
+
+<section id="abstract">
+  <h2>Abstract</h2>
+  <p>
+    Recent deep learning approaches in modeling articulatory kinematics have shown success in
+    mapping speech audio to electromagnetic articulography (EMA) kinematics, but these methods
+    are limited by the scarcity of high-quality articulatory datasets. We introduce
+    <strong>s</strong>ynthesizing <strong>t</strong>ext to <strong>ar</strong>ticulatory
+    <strong>k</strong>inematics (<strong>STArK</strong>), which offers a novel approach in
+    generating articulatory kinematics directly from text. We train STArK on the LibriTTS-R
+    dataset with pseudo-labeled EMA features derived from a pre-trained speech-to-articulation
+    model. STArK is the first model to demonstrate high-quality articulatory kinematics
+    generation from text. STArK achieves comparable performance to existing multi-speaker
+    text-to-speech models at speech synthesis, while supporting voice cloning without seeing
+    speaker embeddings during training. STArK aims to enable the generation of scalable
+    articulatory data from text corpora for downstream tasks.
+  </p>
+</section>
+
+<section id="method">
+  <h2>Method</h2>
+  <p>
+    STArK follows a non-autoregressive text-to-articulation (TTA) pipeline: a
+    Phonemizer/eSpeak-NG front-end converts text to phonemes, an FFConformer Text Encoder with
+    rotary positional embeddings produces phoneme representations, an unsupervised aligner
+    (adapted from <a href="https://doi.org/10.1109/ICASSP43922.2022.9747707">One TTS
+    Alignment</a>) and duration predictor regulate timing, and an FFConformer Articulatory
+    Decoder predicts 12 EMA channels plus pitch and loudness — the
+    <a href="https://doi.org/10.1109/JSTSP.2024.3497655">SPARC</a> feature space. A frozen SPARC
+    vocoder then resynthesizes speech from the predicted articulatory kinematics, using a
+    reference speaker embedding for voice cloning — STArK itself never sees speaker embeddings
+    during training.
+  </p>
+  <figure>
+    <img src="assets/images/example_ema.png" alt="Example predicted EMA, pitch, and loudness trajectories for a single utterance">
+    <figcaption>Predicted articulatory trajectories (12 EMA channels + pitch + loudness) for a single utterance.</figcaption>
+  </figure>
+  <figure>
+    <img src="assets/images/ema_comparison.png" alt="Comparison of STArK predictions against ground-truth SPARC features">
+    <figcaption>
+      STArK (green) vs. STArK with aligner durations (orange dashed) vs. ground-truth SPARC
+      features (purple dotted). Aligner durations correct the temporal warping visible in the
+      base STArK trajectory.
+    </figcaption>
+  </figure>
+</section>
+
+<section id="results">
+  <h2>Results</h2>
+  <p>
+    STArK was trained on LibriTTS-R <code>train-clean-100</code> for 32,000 steps (~96 hours on
+    4 L40S GPUs), and evaluated on <code>test-clean</code>. <strong>Setup (1)</strong> uses
+    predicted durations (full text-to-speech inference); <strong>+ aligner</strong> (Setup 2)
+    substitutes aligner-generated durations; <strong>+ prosody</strong> (Setup 3) additionally
+    substitutes ground-truth pitch/loudness from SPARC, isolating text-to-articulation accuracy
+    from prosody prediction.
+  </p>
+
+  <div class="table-scroll">
+    <table>
+      <caption>Table 1 — Speech synthesis evaluation on LibriTTS-R test-clean (± 95% CI). See the paper for best/second-best significance annotations.</caption>
+      <thead>
+        <tr>
+          <th>Model</th><th>DNSMOS<br>P.808 ↑</th><th>SIG ↑</th><th>BAK ↑</th><th>OVR ↑</th>
+          <th>UTMOSv2 ↑</th><th>NMOS ↑</th><th>SECS ↑</th><th>WER ↓</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th>GT</th><td>3.71±0.01</td><td>3.465±0.007</td><td>3.925±0.008</td><td>3.135±0.009</td><td>3.25±0.01</td><td>3.9±0.4</td><td>1.000</td><td>2.39</td></tr>
+        <tr><th>SPARC</th><td>3.77±0.01</td><td>3.543±0.005</td><td>4.024±0.006</td><td>3.240±0.007</td><td>3.03±0.01</td><td>3.7±0.3</td><td>0.493±0.006</td><td>3.31</td></tr>
+        <tr><th>STArK</th><td>3.71±0.01</td><td>3.504±0.006</td><td>3.902±0.009</td><td>3.142±0.009</td><td>2.97±0.01</td><td>2.8±0.6</td><td>0.426±0.005</td><td>6.25</td></tr>
+        <tr><th>+ aligner</th><td>3.84±0.01</td><td>3.540±0.005</td><td>3.983±0.007</td><td>3.216±0.008</td><td>2.85±0.01</td><td>2.9±0.4</td><td>0.446±0.005</td><td>6.30</td></tr>
+        <tr><th>+ prosody</th><td>3.79±0.01</td><td>3.537±0.005</td><td>4.006±0.006</td><td>3.224±0.007</td><td>3.03±0.01</td><td>3.3±0.3</td><td>0.478±0.006</td><td>6.01</td></tr>
+        <tr><th>YourTTS</th><td>3.81±0.01</td><td>3.568±0.005</td><td>4.100±0.004</td><td>3.307±0.006</td><td>2.80±0.01</td><td>2.0±0.5</td><td>0.410±0.005</td><td>4.58</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="margin-top:1.25rem">
+    Despite training on far less data than YourTTS and never seeing speaker embeddings during
+    training, STArK is competitive on DNSMOS and <strong>outperforms YourTTS on speaker
+    similarity (SECS)</strong> — attributable to SPARC's speaker–content disentanglement.
+  </p>
+
+  <div class="table-scroll" style="margin-top:1.5rem">
+    <table>
+      <caption>Table 2 — Articulatory feature similarity between STArK and SPARC (test-clean). PCC uses STArK+aligner; ΔDTW is the DTW-distance change from adding aligner durations (negative = improvement).</caption>
+      <thead>
+        <tr><th>Feature</th><th>PCC ↑</th><th>ΔDTW ↓</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>EMA</th><td>0.905±0.001</td><td>−0.81±0.09</td></tr>
+        <tr><th>Pitch</th><td>0.533±0.009</td><td>−0.04±0.04</td></tr>
+        <tr><th>Loudness</th><td>0.796±0.002</td><td>−0.20±0.06</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="demo">
+  <h2>Demo samples</h2>
+  <p>
+    Generated with <a href="https://github.com/Lab-MSP/STArK/blob/main/scripts/stark_cli.py"><code>scripts/stark_cli.py</code></a>
+    using the paper's checkpoint (step 32000). Each sample clones a different LibriTTS-R
+    <code>test-clean</code> speaker's voice from a short reference clip — the reference clip's
+    spoken content is unrelated to the synthesized sentence; it's shown only to demonstrate the
+    voice being cloned.
+  </p>
+  <div class="samples">
+
+    <div class="sample-card">
+      <p class="sample-text">"Articulation is the key to understanding human speech production."</p>
+      <div class="sample-row"><span class="sample-label">STArK (generated)</span><audio controls src="assets/audio/demo_0.wav"></audio></div>
+      <div class="sample-row"><span class="sample-label">Reference voice</span><audio controls src="assets/audio/reference_0.wav"></audio></div>
+    </div>
+
+    <div class="sample-card">
+      <p class="sample-text">"STArK generates high-quality articulatory kinematics directly from text."</p>
+      <div class="sample-row"><span class="sample-label">STArK (generated)</span><audio controls src="assets/audio/demo_1.wav"></audio></div>
+      <div class="sample-row"><span class="sample-label">Reference voice</span><audio controls src="assets/audio/reference_1.wav"></audio></div>
+    </div>
+
+    <div class="sample-card">
+      <p class="sample-text">"The quick brown fox jumps over the lazy dog."</p>
+      <div class="sample-row"><span class="sample-label">STArK (generated)</span><audio controls src="assets/audio/demo_2.wav"></audio></div>
+      <div class="sample-row"><span class="sample-label">Reference voice</span><audio controls src="assets/audio/reference_2.wav"></audio></div>
+    </div>
+
+    <div class="sample-card">
+      <p class="sample-text">"Speech synthesis from articulatory representations remains an open research question."</p>
+      <div class="sample-row"><span class="sample-label">STArK (generated)</span><audio controls src="assets/audio/demo_3.wav"></audio></div>
+      <div class="sample-row"><span class="sample-label">Reference voice</span><audio controls src="assets/audio/reference_3.wav"></audio></div>
+    </div>
+
+  </div>
+</section>
+
+<section id="citation">
+  <h2>Citation</h2>
+  <pre><code>@inproceedings{yin2026stark,
+  title     = {{STArK}: Towards Synthesizing Articulatory Kinematics from Text},
+  author    = {Yin, Xavier and Busso, Carlos},
+  booktitle = {Proc. Interspeech 2026},
+  year      = {2026}
+}</code></pre>
+  <p class="muted">
+    STArK builds directly on
+    <a href="https://doi.org/10.1109/JSTSP.2024.3497655">SPARC</a> (Cho et al.) — see the
+    <a href="https://github.com/Lab-MSP/STArK/blob/main/LICENSE">repository license</a> for the
+    SPARC citation requirement.
+  </p>
+</section>
+
+<footer>
+  <p>
+    <a href="https://lab-msp.com/MSP/publications/Yin_2026.pdf">Paper</a> ·
+    <a href="https://github.com/Lab-MSP/STArK">Code</a> ·
+    <a href="https://lab-msp.com">MSP Lab</a>
+  </p>
+  <p>Multimodal Speech Processing (MSP) Lab · Carnegie Mellon University</p>
+</footer>
+
+</main>
+</body>
+</html>
