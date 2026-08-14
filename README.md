@@ -8,6 +8,7 @@ SPARC vocoder.
 > STArK: Towards Synthesizing Articulatory Kinematics from Text
 > Xavier Yin, Carlos Busso — Interspeech 2026
 > [Paper (PDF)](https://lab-msp.com/MSP/publications/Yin_2026.pdf) — temporary link, pending official proceedings
+> [Project page](https://lab-msp.github.io/STArK/) — results and demo samples
 
 Training your own model or reproducing the paper's results from scratch? See
 [`TRAINING.md`](TRAINING.md) — this README covers installation and using a trained checkpoint
