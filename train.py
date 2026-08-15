@@ -15,7 +15,12 @@ def train(config: DictConfig):
     config['train']['checkpoint']['dirpath'] = config['train']['checkpoint']['dirpath'].format(experiment_name=config['train']['experiment_name'])
     trainer = L.Trainer(
         **config['train']['trainer'],
-        callbacks=[ModelCheckpoint(**config['train']['checkpoint']),],
+        # Lightning's default progress bar (RichProgressBar, since `rich` is
+        # installed) redraws in place via terminal control codes, which is
+        # unreadable in a SLURM .out file — swap it for a callback that prints
+        # plain log lines instead, so losses are easy to tail/grep.
+        enable_progress_bar=False,
+        callbacks=[ModelCheckpoint(**config['train']['checkpoint']), tts.PlainTextProgressCallback()],
         logger=TensorBoardLogger(**config['train']['logger']),
     )
     dataset_name = config['preprocess']['dataset']['dataset_name']
