@@ -28,6 +28,12 @@ class PlainTextProgressCallback(L.Callback):
         metrics = {k: v for k, v in trainer.callback_metrics.items() if k.startswith("train/")}
         if not metrics:
             return
+        if self._epoch_start_time is None:
+            # on_train_epoch_start doesn't re-fire when resuming mid-epoch from a checkpoint
+            # (the epoch is continued, not restarted) — callback state like this isn't part of
+            # the checkpoint either, so a freshly-constructed instance starts with None here on
+            # every resume. Initialize lazily rather than crash.
+            self._epoch_start_time = time.time()
         elapsed = time.time() - self._epoch_start_time
         metrics_str = " ".join(f"{k}={v:.4f}" for k, v in sorted(metrics.items()))
         print(

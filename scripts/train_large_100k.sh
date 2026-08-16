@@ -50,10 +50,14 @@ cd "$SLURM_SUBMIT_DIR"
 CKPT_DIR=/data/user_data/xoy/articulatory-tts/stark_large_100k/ckpt
 LOG_DIR=/data/user_data/xoy/articulatory-tts/stark_large_100k/log
 CHAIN_MARKER=/data/user_data/xoy/articulatory-tts/stark_large_100k/.chain_count
+FASTFAIL_MARKER=/data/user_data/xoy/articulatory-tts/stark_large_100k/.fastfail_count
 MAX_CHAIN_LENGTH=10  # 10 x 2 days = 20 days of budget; the observed 2-GPU rate needs far less
+FASTFAIL_THRESHOLD_SEC=600   # a legit 2-day-timeout or long-running crash never looks like this
+FASTFAIL_LIMIT=3             # this many back-to-back sub-10-min exits => stop chaining, don't retry forever
 
 mkdir -p "$(dirname "$CHAIN_MARKER")"
 chain_count=$(cat "$CHAIN_MARKER" 2>/dev/null || echo 0)
+fastfail_count=$(cat "$FASTFAIL_MARKER" 2>/dev/null || echo 0)
 
 # Queue our own successor *before* training starts (not after) — if this link gets killed
 # outright by the 2-day time limit, everything below this point never runs, but the successor
@@ -71,6 +75,7 @@ else
 fi
 
 echo "=== training on $(hostname), chain link $((chain_count + 1)) ==="
+train_start=$(date +%s)
 uv run train.py train=train_large model=large_model train.trainer.max_steps=100000 \
     train.trainer.devices=2 \
     train.trainer.accumulate_grad_batches=4 \
@@ -78,18 +83,42 @@ uv run train.py train=train_large model=large_model train.trainer.max_steps=1000
     train.checkpoint.dirpath=$CKPT_DIR \
     train.logger.save_dir=$LOG_DIR
 exit_code=$?
+train_duration=$(( $(date +%s) - train_start ))
 
 if [ $exit_code -eq 0 ]; then
     # trainer.fit() only returns 0 like this because max_steps was actually reached — nothing
     # else in this config stops training early.
     echo "=== training finished successfully (max_steps reached) ==="
-    rm -f "$CHAIN_MARKER"
+    rm -f "$CHAIN_MARKER" "$FASTFAIL_MARKER"
     if [ -n "$successor_id" ]; then
         echo "=== cancelling now-unneeded successor job $successor_id ==="
         scancel "$successor_id"
     fi
     echo "=== submitting eval + push to HF ==="
     sbatch "$SLURM_SUBMIT_DIR/scripts/eval_and_push.sh"
-else
-    echo "=== training exited with code $exit_code (2-day time limit or a transient error) — successor job $successor_id will continue from the last checkpoint ==="
+    exit 0
 fi
+
+# Non-zero exit. A legitimate 2-day-timeout link ran for ~2 days before SLURM killed it; a real
+# crash (bad config, code bug, OOM at startup, etc.) typically dies within seconds-to-minutes.
+# Distinguish the two by elapsed wall time so a crash-loop can't silently re-queue its way
+# through the entire MAX_CHAIN_LENGTH budget (as happened once already — 10 links x ~31min each
+# burned in ~5 hours with no one noticing until the chain was already dead).
+if [ "$train_duration" -lt "$FASTFAIL_THRESHOLD_SEC" ]; then
+    fastfail_count=$((fastfail_count + 1))
+    echo "$fastfail_count" > "$FASTFAIL_MARKER"
+    echo "=== training exited with code $exit_code after only ${train_duration}s (looks like a crash, not a timeout) — fastfail_count=$fastfail_count/$FASTFAIL_LIMIT ==="
+    if [ "$fastfail_count" -ge "$FASTFAIL_LIMIT" ]; then
+        echo "=== $fastfail_count consecutive fast failures — this looks like a crash loop, not transient flakiness. Cancelling successor $successor_id and halting the chain. Fix the root cause, then reset $FASTFAIL_MARKER (or just delete it) and resubmit. ==="
+        if [ -n "$successor_id" ]; then
+            scancel "$successor_id"
+        fi
+        exit 1
+    fi
+else
+    # Real progress was made before this exit — a genuine timeout or a one-off transient error.
+    # Reset the fast-fail streak so isolated blips don't accumulate toward the breaker.
+    rm -f "$FASTFAIL_MARKER"
+    echo "=== training exited with code $exit_code after ${train_duration}s (2-day time limit or a transient error) — successor job $successor_id will continue from the last checkpoint ==="
+fi
+exit $exit_code
