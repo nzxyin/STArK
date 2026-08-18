@@ -13,7 +13,12 @@ dependencies = [
     "lightning>=2.6.0",
     "matplotlib",
     "numpy",
-    "onnxruntime-gpu>=1.24.2",
+    # <1.27: starting at 1.27, PyPI's onnxruntime-gpu builds default to CUDA 13
+    # (libcublasLt.so.13) instead of CUDA 12 -- this repo's torch<2.9 pin only pulls CUDA 12.8
+    # nvidia-* wheels, so an unpinned onnxruntime-gpu silently falls back to (much slower) CPU
+    # execution the moment it can't load the CUDA provider, confirmed on a real eval run where
+    # DNSMOS+UTMOSv2 scoring over the full test-clean split projected to ~5 hours on CPU.
+    "onnxruntime-gpu>=1.24.2,<1.27",
     "phonemizer>=3.2.1",
     "pyyaml",
     "requests>=2.32.5",
