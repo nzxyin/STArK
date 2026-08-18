@@ -4,9 +4,9 @@
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_eval_testset_%j.err
 #SBATCH --partition=general
 #SBATCH --time=08:00:00
-#SBATCH --mem-per-cpu=8G
-#SBATCH --cpus-per-gpu=8
-#SBATCH --gres=gpu:L40S:1
+#SBATCH --mem-per-cpu=4G
+#SBATCH --cpus-per-gpu=4
+#SBATCH --gres=gpu:1
 
 # One-off read-only quality check of whatever checkpoint is passed in (mid-training or final —
 # this does NOT push anything to the Hub) against the full LibriTTS-R test-clean split: PCC/DTW
@@ -14,8 +14,15 @@
 # methodology as eval_and_push.py / the paper's Table 2), plus DNSMOS + UTMOSv2 on the Setup 1
 # resynthesized audio vs ground truth vs oracle resynthesis (paper Table 1 methodology).
 #
-# L40S pinned to match train_large_100k.sh, though the DDP hang that motivated that pin
-# shouldn't apply here (single GPU, devices=1, no DDP) — kept for consistency/caution.
+# No longer pinned to L40S (was gpu:L40S:1, cpus-per-gpu=8, mem-per-cpu=8G): L40S nodes are
+# heavily contended cluster-wide, which is most of why 3 straight submissions sat PENDING for
+# up to an hour with zero runtime. This job doesn't need a specific GPU model — it's single-GPU
+# inference only (devices=1, no DDP) — and 3 earlier attempts already got well past model load
+# and into real batch processing on L40S with no sign of the DDP-era hang that motivated pinning
+# it for *training* (train_large_100k.sh), so that risk looks low here. Any-GPU-type + a smaller
+# CPU/mem footprint broadens the pool of nodes/QoS slots that can satisfy the request, which
+# should schedule faster on both general (still capped elsewhere) and preempt. num_workers is
+# dropped to match (see the uv run invocation below).
 
 export PATH="$HOME/.local/bin:$PATH"
 cd "$SLURM_SUBMIT_DIR"
@@ -45,6 +52,7 @@ echo "=== evaluating $SNAPSHOT_PATH (snapshot of $CKPT_PATH) on test-clean, writ
 uv run --extra eval scripts/eval_full_testset.py \
     --checkpoint "$SNAPSHOT_PATH" \
     --dataset_root /data/user_data/xoy/LibriTTS_R/ \
+    --num_workers 4 \
     --results_path "$RESULTS_PATH"
 exit_code=$?
 
