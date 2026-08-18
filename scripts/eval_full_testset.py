@@ -1,10 +1,12 @@
 """Evaluate a checkpoint (any checkpoint — including a mid-training one, not just a final push
 candidate) on the *full* LibriTTS-R test-clean split:
 
-  1. Pearson correlation (PCC) of predicted EMA/pitch/loudness vs ground truth, using the same
-     dataset-driven pipeline and both setups as `eval_and_push.py`/the paper's Table 2 (Setup 1:
-     predicted durations, the true end-to-end scenario; Setup 2: aligner ground-truth durations,
-     the paper's reported anchor).
+  1. Predicted EMA/pitch/loudness vs ground truth, using the same dataset-driven pipeline and
+     both setups as `eval_and_push.py`/the paper's Table 2: Setup 1 (predicted durations, the
+     true end-to-end scenario) scored via DTW only, and Setup 2 (aligner ground-truth durations,
+     the paper's reported anchor) scored via both DTW and Pearson correlation (PCC). PCC is
+     skipped for Setup 1 because pearsonr requires equal-length arrays, and only aligner
+     ground-truth durations guarantee the predicted frame count matches ground truth's.
   2. Audio-domain quality of the Setup 1 (predicted-duration) resynthesis: DNSMOS and UTMOSv2,
      alongside ground-truth audio and an oracle resynthesis (ground-truth SPARC features decoded
      through the same vocoder) as reference points, matching paper Table 1's methodology.
@@ -96,24 +98,34 @@ def run_dataset_pipeline(checkpoint_path, base_config, use_aligner, batch_size, 
     return predictions
 
 
-def score_ema(predictions, ground_truth):
-    pearson_ema, dtw_ema = [], []
-    pearson_pitch, dtw_pitch = [], []
-    pearson_loudness, dtw_loudness = [], []
-    for uid, pred in tqdm(predictions.items(), desc="scoring EMA/PCC/DTW"):
+def score_ema(predictions, ground_truth, compute_pcc):
+    """compute_pcc must be False for predicted-duration (Setup 1) output: pearsonr requires
+    equal-length arrays, but predicted durations generally do NOT produce the same frame count
+    as ground truth (only aligner ground-truth durations, i.e. Setup 2, guarantee that) — this
+    is exactly why the paper reports DTW (length-tolerant) for Setup 1 and PCC only for Setup 2,
+    a distinction diagnose_inference.py already encodes but this script initially missed,
+    crashing on a real length mismatch (173 vs 213 frames) partway through a full-test-set run."""
+    dtw_ema, dtw_pitch, dtw_loudness = [], [], []
+    pearson_ema, pearson_pitch, pearson_loudness = [], [], []
+    for uid, pred in tqdm(predictions.items(), desc="scoring EMA (PCC+DTW)" if compute_pcc else "scoring EMA (DTW)"):
         gt = ground_truth[uid]
-        p_ema, p_pitch, p_loud = compute_pearson(pred, gt)
         d_ema, d_pitch, d_loud = compute_dtw(pred, gt)
-        pearson_ema.append(p_ema); pearson_pitch.append(p_pitch); pearson_loudness.append(p_loud)
         dtw_ema.append(d_ema); dtw_pitch.append(d_pitch); dtw_loudness.append(d_loud)
-    return {
-        "pearson_ema": summarize(pearson_ema),
-        "pearson_pitch": summarize(pearson_pitch),
-        "pearson_loudness": summarize(pearson_loudness),
+        if compute_pcc:
+            p_ema, p_pitch, p_loud = compute_pearson(pred, gt)
+            pearson_ema.append(p_ema); pearson_pitch.append(p_pitch); pearson_loudness.append(p_loud)
+    result = {
         "dtw_ema": summarize(dtw_ema),
         "dtw_pitch": summarize(dtw_pitch),
         "dtw_loudness": summarize(dtw_loudness),
     }
+    if compute_pcc:
+        result.update({
+            "pearson_ema": summarize(pearson_ema),
+            "pearson_pitch": summarize(pearson_pitch),
+            "pearson_loudness": summarize(pearson_loudness),
+        })
+    return result
 
 
 @torch.no_grad()
@@ -201,14 +213,14 @@ def main():
     setup1_predictions = run_dataset_pipeline(args.checkpoint, base_config, use_aligner=False,
                                                batch_size=args.batch_size, num_workers=args.num_workers)
     print(f"  got predictions for {len(setup1_predictions)}/{len(ids)} utterances")
-    results["setup1_predicted_durations"] = score_ema(setup1_predictions, ground_truth)
+    results["setup1_predicted_durations"] = score_ema(setup1_predictions, ground_truth, compute_pcc=False)
     print(json.dumps(results["setup1_predicted_durations"], indent=2))
 
     print("\n=== Setup 2: aligner ground-truth durations (paper Table 2 anchor) ===")
     setup2_predictions = run_dataset_pipeline(args.checkpoint, base_config, use_aligner=True,
                                                batch_size=args.batch_size, num_workers=args.num_workers)
     print(f"  got predictions for {len(setup2_predictions)}/{len(ids)} utterances")
-    results["setup2_aligner_durations"] = score_ema(setup2_predictions, ground_truth)
+    results["setup2_aligner_durations"] = score_ema(setup2_predictions, ground_truth, compute_pcc=True)
     print(json.dumps(results["setup2_aligner_durations"], indent=2))
     print("  paper Table 2 reference (full test-clean, N=302x8): PCC ema=0.905 pitch=0.533 loudness=0.796")
 
