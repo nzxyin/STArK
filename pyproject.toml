@@ -31,6 +31,14 @@ dependencies = [
     "tslearn>=0.8.0",
 ]
 
+[project.optional-dependencies]
+# Extra deps only needed for scripts/eval_full_testset.py's audio-quality metrics — not on the
+# base install since UTMOSv2 has no PyPI release (installed straight from its GitHub repo) and
+# pulls in its own largeish model-download step, neither of which regular users need.
+eval = [
+    "utmosv2 @ git+https://github.com/sarulab-speech/UTMOSv2.git",
+]
+
 [build-system]
 requires = ["uv_build>=0.9.16,<0.10.0"]
 build-backend = "uv_build"

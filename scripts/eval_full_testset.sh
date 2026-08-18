@@ -1,0 +1,51 @@
+#!/bin/bash
+#SBATCH --job-name=stark_eval_testset
+#SBATCH --output=/data/user_data/xoy/slurm_logs/stark_eval_testset_%j.out
+#SBATCH --error=/data/user_data/xoy/slurm_logs/stark_eval_testset_%j.err
+#SBATCH --partition=general
+#SBATCH --time=08:00:00
+#SBATCH --mem-per-cpu=8G
+#SBATCH --cpus-per-gpu=8
+#SBATCH --gres=gpu:L40S:1
+
+# One-off read-only quality check of whatever checkpoint is passed in (mid-training or final —
+# this does NOT push anything to the Hub) against the full LibriTTS-R test-clean split: PCC/DTW
+# of predicted EMA vs ground truth (Setup 1 predicted-duration + Setup 2 aligner-duration, same
+# methodology as eval_and_push.py / the paper's Table 2), plus DNSMOS + UTMOSv2 on the Setup 1
+# resynthesized audio vs ground truth vs oracle resynthesis (paper Table 1 methodology).
+#
+# L40S pinned to match train_large_100k.sh, though the DDP hang that motivated that pin
+# shouldn't apply here (single GPU, devices=1, no DDP) — kept for consistency/caution.
+
+export PATH="$HOME/.local/bin:$PATH"
+cd "$SLURM_SUBMIT_DIR"
+
+# Keep UTMOSv2's pretrained-model download and any HF cache off $HOME (tight 100GB quota).
+export HF_HOME=/data/user_data/xoy/.cache/huggingface
+export TORCH_HOME=/data/user_data/xoy/.cache/torch
+mkdir -p "$HF_HOME" "$TORCH_HOME"
+
+CKPT_PATH="${1:?usage: sbatch eval_full_testset.sh <ckpt_path> <results_path>}"
+RESULTS_PATH="${2:?usage: sbatch eval_full_testset.sh <ckpt_path> <results_path>}"
+
+# Snapshot the checkpoint before evaluating rather than reading it live: if $CKPT_PATH is an
+# actively-training run's last.ckpt (as it is here), training will keep overwriting it
+# periodically over the course of this job's up-to-8-hour runtime, and Lightning's
+# ModelCheckpoint doesn't write it via an atomic rename — a read mid-write could load a
+# truncated/corrupt file. Copying once up front pins us to one consistent, fully-written state.
+SNAPSHOT_PATH="/scratch/job_tmp/stark_eval_ckpt_snapshot_${SLURM_JOB_ID}.ckpt"
+cp "$CKPT_PATH" "$SNAPSHOT_PATH"
+echo "=== snapshotted $CKPT_PATH -> $SNAPSHOT_PATH ==="
+
+echo "=== installing eval extras (utmosv2) ==="
+uv sync --extra eval
+
+echo "=== evaluating $SNAPSHOT_PATH (snapshot of $CKPT_PATH) on test-clean, writing to $RESULTS_PATH ==="
+uv run --extra eval scripts/eval_full_testset.py \
+    --checkpoint "$SNAPSHOT_PATH" \
+    --dataset_root /data/user_data/xoy/LibriTTS_R/ \
+    --results_path "$RESULTS_PATH"
+exit_code=$?
+
+echo "=== eval script exited with code $exit_code ==="
+exit $exit_code
