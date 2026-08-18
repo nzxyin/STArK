@@ -34,6 +34,7 @@ RESULTS_PATH="${2:?usage: sbatch eval_full_testset.sh <ckpt_path> <results_path>
 # ModelCheckpoint doesn't write it via an atomic rename — a read mid-write could load a
 # truncated/corrupt file. Copying once up front pins us to one consistent, fully-written state.
 SNAPSHOT_PATH="/scratch/job_tmp/stark_eval_ckpt_snapshot_${SLURM_JOB_ID}.ckpt"
+mkdir -p "$(dirname "$SNAPSHOT_PATH")"
 cp "$CKPT_PATH" "$SNAPSHOT_PATH"
 echo "=== snapshotted $CKPT_PATH -> $SNAPSHOT_PATH ==="
 
