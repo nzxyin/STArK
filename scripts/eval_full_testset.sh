@@ -28,10 +28,14 @@
 export PATH="$HOME/.local/bin:$PATH"
 cd "$SLURM_SUBMIT_DIR"
 
-# Keep UTMOSv2's pretrained-model download and any HF cache off $HOME (tight 100GB quota).
+# Keep UTMOSv2's pretrained-model download and any HF/torch cache off $HOME (tight 100GB quota).
+# XDG_CACHE_HOME covers utmosv2 specifically -- it downloads its checkpoint straight to
+# ~/.cache/utmosv2 regardless of HF_HOME/TORCH_HOME (confirmed on a real run: it landed under
+# $HOME even with those two set).
 export HF_HOME=/data/user_data/xoy/.cache/huggingface
 export TORCH_HOME=/data/user_data/xoy/.cache/torch
-mkdir -p "$HF_HOME" "$TORCH_HOME"
+export XDG_CACHE_HOME=/data/user_data/xoy/.cache
+mkdir -p "$HF_HOME" "$TORCH_HOME" "$XDG_CACHE_HOME"
 
 CKPT_PATH="${1:?usage: sbatch eval_full_testset.sh <ckpt_path> <results_path>}"
 RESULTS_PATH="${2:?usage: sbatch eval_full_testset.sh <ckpt_path> <results_path>}"

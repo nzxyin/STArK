@@ -154,7 +154,11 @@ def score_audio(setup1_predictions, ground_truth, preprocessed_dir, device):
     def utmos_score(wav, sr):
         if sr != 16000:
             wav = librosa.resample(wav, orig_sr=sr, target_sr=16000)
-        return float(utmos_model.predict(data=wav.astype(np.float32), sr=16000))
+        # predict() returns shape (batch_size,) or (1,), not a bare scalar (per its own docs),
+        # so a plain float(...) crashes with "only 0-dimensional arrays can be converted to
+        # Python scalars" -- confirmed on a real run that got this far. Squeeze to the one value.
+        result = utmos_model.predict(data=wav.astype(np.float32), sr=16000)
+        return float(np.asarray(result).reshape(-1)[0])
 
     results = {"gt": {"dnsmos": [], "utmosv2": []}, "oracle": {"dnsmos": [], "utmosv2": []}, "stark": {"dnsmos": [], "utmosv2": []}}
     for uid in tqdm(setup1_predictions, desc="scoring audio (DNSMOS + UTMOSv2)"):
