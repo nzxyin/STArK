@@ -33,8 +33,14 @@ mkdir -p "$(dirname "$SNAPSHOT_PATH")"
 cp "$CKPT_PATH" "$SNAPSHOT_PATH"
 echo "=== snapshotted $CKPT_PATH -> $SNAPSHOT_PATH ==="
 
+# --extra eval, matching eval_full_testset.sh, even though this script doesn't itself import
+# utmosv2: both scripts share ONE .venv (checked out once under $HOME, not per-job), and a plain
+# `uv sync` here previously raced a concurrently-running eval_full_testset.sh job, desyncing the
+# extra it needed mid-run (ModuleNotFoundError: No module named 'utmosv2') -- confirmed on a
+# real concurrent submission of both jobs. Keeping every script's sync spec identical is the
+# cheap fix; a fully isolated per-job venv would be the robust one if this keeps happening.
 echo "=== syncing env ==="
-uv sync
+uv sync --extra eval
 
 RESULTS_ARG=()
 if [ "$RESULTS_JSON" != "NONE" ]; then
