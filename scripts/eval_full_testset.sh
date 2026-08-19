@@ -36,7 +36,13 @@ cd "$SLURM_SUBMIT_DIR"
 export HF_HOME=/data/user_data/xoy/.cache/huggingface
 export TORCH_HOME=/data/user_data/xoy/.cache/torch
 export UTMOSV2_CHACHE=/data/user_data/xoy/.cache/utmosv2
-mkdir -p "$HF_HOME" "$TORCH_HOME" "$UTMOSV2_CHACHE"
+# uv's own package cache -- where `uv sync --extra eval` downloads/extracts wheels like the
+# 264MB onnxruntime-gpu -- defaults to ~/.cache/uv and was never redirected. This was the actual
+# proximate trigger of a real "Disk quota exceeded" failure mid-extraction: the other caches
+# above were already off $HOME, but this one wasn't, and it's the single largest one in practice
+# (17GB observed accumulated in it from repeated runs of this exact script).
+export UV_CACHE_DIR=/data/user_data/xoy/.cache/uv
+mkdir -p "$HF_HOME" "$TORCH_HOME" "$UTMOSV2_CHACHE" "$UV_CACHE_DIR"
 
 CKPT_PATH="${1:?usage: sbatch eval_full_testset.sh <ckpt_path> <results_path>}"
 RESULTS_PATH="${2:?usage: sbatch eval_full_testset.sh <ckpt_path> <results_path>}"
