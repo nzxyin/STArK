@@ -2,7 +2,8 @@
 #SBATCH --job-name=stark_eval_testset
 #SBATCH --output=/data/user_data/xoy/slurm_logs/stark_eval_testset_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_eval_testset_%j.err
-#SBATCH --partition=general
+#SBATCH --partition=preempt
+#SBATCH --requeue
 #SBATCH --time=08:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
