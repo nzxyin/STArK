@@ -2,7 +2,8 @@
 #SBATCH --job-name=stark_large_100k
 #SBATCH --output=/data/user_data/xoy/slurm_logs/stark_large_100k_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_large_100k_%j.err
-#SBATCH --partition=general
+#SBATCH --partition=preempt
+#SBATCH --requeue
 #SBATCH --time=2-00:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
@@ -22,16 +23,21 @@
 # workaround, not a diagnosed fix. accumulate_grad_batches is doubled (2->4) to preserve the
 # same effective batch size (128) the paper's 4-GPU config used.
 #
-# general instead of preempt: general has this cluster's highest scheduling priority (10000)
-# and nothing preempts it, whereas preempt (priority 0) sits at the bottom of the preemption
-# hierarchy and was repeatedly evicted by general/debug/array jobs, mid-run, with no bound on
-# how long it then sits requeued waiting for another allocation. Trading unlimited-but-
-# preemptible time for general's guaranteed-but-capped-at-2-days time is a net win here in
-# practice. To cover a run that needs more than 2 days, this script chains itself: each link
-# queues its own successor (via --dependency=afterany, so it runs regardless of *how* this
-# link ends — clean completion, hitting the 2-day wall, or a crash) before it starts training,
-# so the chain survives even if this link gets killed by the time limit before reaching any
-# of its own post-training cleanup code.
+# preempt, not general (switched back after using general for a while): general's fixed
+# 8-GPU/user cap turned out to be a worse failure mode than preempt's eviction risk -- this
+# job got fully blocked (QOSMaxGRESPerUser, indefinitely pending) on general because *other,
+# unrelated* jobs under the same user account (an ablation array + a separate curriculum-
+# training job) were using the rest of the 8-GPU budget, with no way to know when they'd free
+# up. preempt has a much higher per-user GPU cap (24) and was never actually the bottleneck in
+# practice once --requeue is set (SLURM auto-resubmits the same job on eviction, without
+# consuming a chain link) -- the original "general has no preemption risk" reasoning undersold
+# how easily general's cap gets exhausted by a single account's *other* concurrent work, which
+# this script has no visibility into or control over. To cover a run that needs more than 2
+# days regardless of partition, this script also chains itself: each link queues its own
+# successor (via --dependency=afterany, so it runs regardless of *how* this link ends — clean
+# completion, hitting the 2-day wall, a crash, or exhausting requeue attempts) before it starts
+# training, so the chain survives even if this link gets killed by the time limit before
+# reaching any of its own post-training cleanup code.
 
 export PATH="$HOME/.local/bin:$PATH"
 cd "$SLURM_SUBMIT_DIR"
@@ -64,8 +70,16 @@ fastfail_count=$(cat "$FASTFAIL_MARKER" 2>/dev/null || echo 0)
 # is already safely in the queue. Use the canonical checked-in script path (not $0 — SLURM
 # stages/copies the submitted script, so $0 doesn't reliably point back at a resubmittable
 # path) via $SLURM_SUBMIT_DIR, the directory `sbatch` was originally invoked from.
+#
+# SLURM_RESTART_COUNT guard: with --requeue set (needed on preempt), a preemption restarts
+# THIS SAME job/script from the top rather than ending it — SLURM increments
+# SLURM_RESTART_COUNT (0 on the original dispatch) each time. Without this guard, every
+# preemption-triggered restart would queue *another* duplicate successor, burning the chain
+# budget on mere evictions instead of real completions/crashes. --dependency=afterany already
+# only fires once this job reaches a real terminal state (SLURM tracks REQUEUED as non-terminal
+# on its own), so one successor queued at the original dispatch is enough.
 successor_id=""
-if [ "$chain_count" -lt "$MAX_CHAIN_LENGTH" ]; then
+if [ "${SLURM_RESTART_COUNT:-0}" -eq 0 ] && [ "$chain_count" -lt "$MAX_CHAIN_LENGTH" ]; then
     echo $((chain_count + 1)) > "$CHAIN_MARKER"
     successor_id=$(sbatch --parsable --dependency=afterany:$SLURM_JOB_ID \
         "$SLURM_SUBMIT_DIR/scripts/train_large_100k.sh")
@@ -93,6 +107,15 @@ if [ $exit_code -eq 0 ]; then
     if [ -n "$successor_id" ]; then
         echo "=== cancelling now-unneeded successor job $successor_id ==="
         scancel "$successor_id"
+    elif [ "${SLURM_RESTART_COUNT:-0}" -gt 0 ]; then
+        # Known minor gap: on a preemption-requeued execution (restart count > 0) this process
+        # never learned its own successor's job id (only the original, restart-count-0
+        # execution queued and knows it), so it can't scancel it here. The already-queued
+        # successor will still run, but train.py/Lightning will see global_step >= max_steps on
+        # resume and return almost immediately without further training -- wasteful (one extra
+        # short job, one duplicate eval+push) but not harmful. Not worth the extra state-passing
+        # complexity to close given how rare "finishes exactly on a requeued execution" is.
+        echo "=== finished on a requeued execution (restart #$SLURM_RESTART_COUNT) — cannot cancel the original successor from here, it will self-detect completion and exit quickly ==="
     fi
     echo "=== submitting eval + push to HF ==="
     sbatch "$SLURM_SUBMIT_DIR/scripts/eval_and_push.sh"
