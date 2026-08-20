@@ -2,11 +2,16 @@
 #SBATCH --job-name=stark_large_eval_push
 #SBATCH --output=/data/user_data/xoy/slurm_logs/stark_large_eval_push_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_large_eval_push_%j.err
-#SBATCH --partition=general
+#SBATCH --partition=msp
+#SBATCH --qos=msp_qos
 #SBATCH --time=12:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
 #SBATCH --gres=gpu:L40S:1
+
+# msp: this account's private partition (see train_large_100k.sh for the full rationale) --
+# higher priority than general/preempt, not subject to general's 8-GPU/user cap. Matches the
+# partition train_large_100k.sh submits this job onto once training finishes.
 
 # Needs a Hugging Face token cached (e.g. via `hf auth login`) under HF_HOME below.
 export HF_HOME="/data/user_data/$USER/.hf_cache"

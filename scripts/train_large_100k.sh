@@ -2,9 +2,10 @@
 #SBATCH --job-name=stark_large_100k
 #SBATCH --output=/data/user_data/xoy/slurm_logs/stark_large_100k_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_large_100k_%j.err
-#SBATCH --partition=preempt
+#SBATCH --partition=msp
+#SBATCH --qos=msp_qos
 #SBATCH --requeue
-#SBATCH --time=2-00:00:00
+#SBATCH --time=20-00:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
 #SBATCH --gres=gpu:L40S:2
@@ -23,21 +24,27 @@
 # workaround, not a diagnosed fix. accumulate_grad_batches is doubled (2->4) to preserve the
 # same effective batch size (128) the paper's 4-GPU config used.
 #
-# preempt, not general (switched back after using general for a while): general's fixed
-# 8-GPU/user cap turned out to be a worse failure mode than preempt's eviction risk -- this
-# job got fully blocked (QOSMaxGRESPerUser, indefinitely pending) on general because *other,
-# unrelated* jobs under the same user account (an ablation array + a separate curriculum-
-# training job) were using the rest of the 8-GPU budget, with no way to know when they'd free
-# up. preempt has a much higher per-user GPU cap (24) and was never actually the bottleneck in
-# practice once --requeue is set (SLURM auto-resubmits the same job on eviction, without
-# consuming a chain link) -- the original "general has no preemption risk" reasoning undersold
-# how easily general's cap gets exhausted by a single account's *other* concurrent work, which
-# this script has no visibility into or control over. To cover a run that needs more than 2
-# days regardless of partition, this script also chains itself: each link queues its own
-# successor (via --dependency=afterany, so it runs regardless of *how* this link ends — clean
-# completion, hitting the 2-day wall, a crash, or exhausting requeue attempts) before it starts
-# training, so the chain survives even if this link gets killed by the time limit before
-# reaching any of its own post-training cleanup code.
+# msp, not preempt/general (switched again once this account was granted msp_qos on 2026-08-20,
+# per ~/.claude/CLAUDE.md): msp is this account's own private partition (1 node, babel-n9-32,
+# 8x L40S -- the same GPU model already pinned above, so no GRES change needed), PriorityTier=5
+# (preempts both general and preempt on that node), and isn't subject to general's 8-GPU/user
+# cap or preempt's cluster-wide eviction pressure -- confirmed via `sbatch --test-only` landing
+# an immediate start, and the partition was completely empty (no other MSP-lab jobs queued) at
+# migration time. --qos=msp_qos is required alongside --partition=msp (the QoS isn't implied by
+# the partition name). --time bumped to 20-00:00:00, just under msp's MaxTime=20-01:00:00 cap --
+# at the confirmed real throughput (~250 steps/hour on an uncontended node), the ~80000 steps
+# remaining need roughly 13 days, so one link should now carry the rest of training without any
+# chaining at all. The chain mechanism below is kept regardless as a safety net (real crash, an
+# admin-initiated preemption, another lab member's higher-priority msp job, etc.): each link
+# still queues its own successor (via --dependency=afterany, so it runs regardless of *how* this
+# link ends) before it starts training, so the chain survives even if this link gets killed
+# before reaching any of its own post-training cleanup code.
+#
+# Earlier partition history, for context: general was used first (highest shared-partition
+# priority), then preempt (general's fixed 8-GPU/user cap turned out to be a worse failure mode
+# than preempt's eviction risk -- this job got fully blocked, QOSMaxGRESPerUser, because
+# *other, unrelated* jobs under this same account were using the rest of the 8-GPU budget, with
+# no way to know when they'd free up). msp sidesteps both problems.
 
 export PATH="$HOME/.local/bin:$PATH"
 cd "$SLURM_SUBMIT_DIR"
