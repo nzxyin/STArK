@@ -2,13 +2,18 @@
 #SBATCH --job-name=stark_eval_testset
 #SBATCH --output=/data/user_data/xoy/slurm_logs/stark_eval_testset_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_eval_testset_%j.err
-#SBATCH --partition=preempt
+#SBATCH --partition=general
 #SBATCH --requeue
 #SBATCH --time=08:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
 #SBATCH --gres=gpu:1
 
+# general (2026-08-20): matches train_large_100k.sh's partition -- STArK was moved off msp
+# (deprioritized relative to other, active articulatory-tts work) and off preempt (general is
+# higher priority when its 8-GPU/user cap isn't the bottleneck). --requeue is harmless here
+# even though general isn't normally preempted.
+#
 # One-off read-only quality check of whatever checkpoint is passed in (mid-training or final —
 # this does NOT push anything to the Hub) against the full LibriTTS-R test-clean split: PCC/DTW
 # of predicted EMA vs ground truth (Setup 1 predicted-duration + Setup 2 aligner-duration, same

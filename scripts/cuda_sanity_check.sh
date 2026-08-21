@@ -2,7 +2,9 @@
 #SBATCH --job-name=cuda_sanity_check
 #SBATCH --output=/data/user_data/xoy/slurm_logs/cuda_sanity_check_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/cuda_sanity_check_%j.err
-#SBATCH --partition=debug
+#SBATCH --partition=general
+# debug (this script's original partition) was removed cluster-wide 2026-08-19; general is the
+# replacement (see ~/.claude/CLAUDE.md's srun-reliability note for the fuller history).
 #SBATCH --time=00:10:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4

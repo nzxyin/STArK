@@ -2,13 +2,16 @@
 #SBATCH --job-name=stark_plot_examples
 #SBATCH --output=/data/user_data/xoy/slurm_logs/stark_plot_examples_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_plot_examples_%j.err
-#SBATCH --partition=preempt
+#SBATCH --partition=general
 #SBATCH --requeue
 #SBATCH --time=00:30:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
 #SBATCH --gres=gpu:1
 
+# general (2026-08-20): matches train_large_100k.sh's partition -- STArK was moved off msp
+# (deprioritized relative to other, active articulatory-tts work) and off preempt.
+#
 # Generates example articulatory-trace comparison plots (predicted vs ground truth) plus a
 # DTW/PCC summary bar chart, from whatever checkpoint + eval results JSON are passed in. Much
 # shorter than eval_full_testset.sh (a handful of example utterances, not the full split), but

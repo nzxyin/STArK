@@ -2,10 +2,9 @@
 #SBATCH --job-name=stark_large_100k
 #SBATCH --output=/data/user_data/xoy/slurm_logs/stark_large_100k_%j.out
 #SBATCH --error=/data/user_data/xoy/slurm_logs/stark_large_100k_%j.err
-#SBATCH --partition=msp
-#SBATCH --qos=msp_qos
+#SBATCH --partition=general
 #SBATCH --requeue
-#SBATCH --time=20-00:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --cpus-per-gpu=4
 #SBATCH --gres=gpu:L40S:2
@@ -24,27 +23,27 @@
 # workaround, not a diagnosed fix. accumulate_grad_batches is doubled (2->4) to preserve the
 # same effective batch size (128) the paper's 4-GPU config used.
 #
-# msp, not preempt/general (switched again once this account was granted msp_qos on 2026-08-20,
-# per ~/.claude/CLAUDE.md): msp is this account's own private partition (1 node, babel-n9-32,
-# 8x L40S -- the same GPU model already pinned above, so no GRES change needed), PriorityTier=5
-# (preempts both general and preempt on that node), and isn't subject to general's 8-GPU/user
-# cap or preempt's cluster-wide eviction pressure -- confirmed via `sbatch --test-only` landing
-# an immediate start, and the partition was completely empty (no other MSP-lab jobs queued) at
-# migration time. --qos=msp_qos is required alongside --partition=msp (the QoS isn't implied by
-# the partition name). --time bumped to 20-00:00:00, just under msp's MaxTime=20-01:00:00 cap --
-# at the confirmed real throughput (~250 steps/hour on an uncontended node), the ~80000 steps
-# remaining need roughly 13 days, so one link should now carry the rest of training without any
-# chaining at all. The chain mechanism below is kept regardless as a safety net (real crash, an
-# admin-initiated preemption, another lab member's higher-priority msp job, etc.): each link
-# still queues its own successor (via --dependency=afterany, so it runs regardless of *how* this
-# link ends) before it starts training, so the chain survives even if this link gets killed
-# before reaching any of its own post-training cleanup code.
+# general again (2026-08-20, later same day as the msp migration below): moved back off msp on
+# explicit request -- STArK is lower priority than other, active articulatory-tts work that
+# needs msp, and msp is a single shared node (other MSP-lab members' jobs were already showing
+# up there), so STArK shouldn't be occupying 2 of its 8 GPUs. This change was applied to the
+# script only, not by killing the job that was running on msp at the time -- it takes effect at
+# the next natural restart (chain hop, crash, or manual resubmission), per instruction not to
+# disrupt an actively-running link.
 #
-# Earlier partition history, for context: general was used first (highest shared-partition
-# priority), then preempt (general's fixed 8-GPU/user cap turned out to be a worse failure mode
-# than preempt's eviction risk -- this job got fully blocked, QOSMaxGRESPerUser, because
-# *other, unrelated* jobs under this same account were using the rest of the 8-GPU budget, with
-# no way to know when they'd free up). msp sidesteps both problems.
+# --time reverts to 2-00:00:00 (general's hard cap, vs msp's 20-01:00:00) -- the self-chaining
+# below is back to doing real work rather than being a dormant safety net, since a single link
+# can no longer cover the ~80000 remaining steps (needs ~13 days at the confirmed ~250
+# steps/hour real throughput). Known risk, accepted as part of this tradeoff: general has a
+# fixed 8-GPU/user cap that this account's *other, unrelated* jobs can exhaust independently of
+# STArK (this exact failure mode blocked this job once already, QOSMaxGRESPerUser, before the
+# msp migration) -- if that recurs, `preempt` (no such cap, but cluster-wide eviction risk
+# instead) is the fallback, not msp.
+#
+# Partition history, for context: general (highest shared-partition priority) -> preempt (to
+# dodge general's 8-GPU cap) -> msp (this account's own private partition, granted 2026-08-20,
+# highest priority + immune to both prior problems) -> back to general (this change, to free up
+# msp for higher-priority work). See git log on this file for the full reasoning at each step.
 
 export PATH="$HOME/.local/bin:$PATH"
 cd "$SLURM_SUBMIT_DIR"
