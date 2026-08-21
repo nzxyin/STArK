@@ -95,6 +95,17 @@ else
 fi
 
 echo "=== training on $(hostname), chain link $((chain_count + 1)) ==="
+
+# Sync the venv here, once, before launching -- Lightning's DDP strategy spawns rank 1+ as
+# separate `python train.py ...` subprocesses (not another `uv run`), but if the venv isn't
+# already up to date (e.g. right after a dependency/code change like this one), *each* rank's
+# process still ends up triggering its own package rebuild concurrently on first import, and a
+# real run hung for 13+ minutes with both ranks stuck in DDP setup (log_dir broadcast/barrier)
+# after exactly that kind of race, confirmed via py-spy showing genuine CPU-spinning (not an
+# I/O wait) at two different points in Lightning's setup path on the two ranks. Syncing once
+# up front, before `uv run train.py` ever starts, removes the race entirely.
+uv sync
+
 train_start=$(date +%s)
 uv run train.py train=train_large model=large_model train.trainer.max_steps=100000 \
     train.trainer.devices=2 \
