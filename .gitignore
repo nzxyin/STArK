@@ -6,7 +6,6 @@ __pycache__/
 .venv
 logs
 outputs
-samples
 uv.lock
 lightning_logs/
 mos_eval_data/
