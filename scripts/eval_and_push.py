@@ -97,6 +97,13 @@ def evaluate(config, downloaded_ckpt_path, use_aligner_durations, dataset_root, 
     datamodule = tts.LibriTTSDataModule(config)
     outputs = trainer.predict(model, datamodule)
 
+    # PCC (pearsonr) requires equal-length arrays. Only aligner ground-truth durations
+    # (use_aligner_durations_if_possible=True) guarantee the predicted frame count matches
+    # ground truth's -- predicted durations (the "stark" tag, False) generally do not, so PCC
+    # is skipped there (DTW, which tolerates length mismatch, is still computed for both).
+    # Confirmed via a real run crashing here: ValueError, shape (147,14) vs (213,14).
+    compute_pcc = use_aligner_durations
+
     pearson_ema, dtw_ema = [], []
     pearson_pitch, dtw_pitch = [], []
     pearson_loudness, dtw_loudness = [], []
@@ -106,23 +113,28 @@ def evaluate(config, downloaded_ckpt_path, use_aligner_durations, dataset_root, 
         for i in range(len(ids)):
             pred = sparc[i][: (~mask[i]).sum(), :].cpu().numpy()
             gt = np.load(os.path.join(dataset_root, "test-clean-preprocessed", "emasrc", f"{ids[i]}.ema.npy"))
-            p_ema, p_pitch, p_loud = compute_pearson(pred, gt)
             d_ema, d_pitch, d_loud = compute_dtw(pred, gt)
-            pearson_ema.append(p_ema); pearson_pitch.append(p_pitch); pearson_loudness.append(p_loud)
             dtw_ema.append(d_ema); dtw_pitch.append(d_pitch); dtw_loudness.append(d_loud)
+            if compute_pcc:
+                p_ema, p_pitch, p_loud = compute_pearson(pred, gt)
+                pearson_ema.append(p_ema); pearson_pitch.append(p_pitch); pearson_loudness.append(p_loud)
 
     def summarize(values):
         values = np.array(values)
         return {"mean": float(values.mean()), "ci95": float(1.96 * values.std() / np.sqrt(len(values)))}
 
-    return {
-        "pearson_ema": summarize(pearson_ema),
-        "pearson_pitch": summarize(pearson_pitch),
-        "pearson_loudness": summarize(pearson_loudness),
+    result = {
         "dtw_ema": summarize(dtw_ema),
         "dtw_pitch": summarize(dtw_pitch),
         "dtw_loudness": summarize(dtw_loudness),
     }
+    if compute_pcc:
+        result.update({
+            "pearson_ema": summarize(pearson_ema),
+            "pearson_pitch": summarize(pearson_pitch),
+            "pearson_loudness": summarize(pearson_loudness),
+        })
+    return result
 
 
 def main():
