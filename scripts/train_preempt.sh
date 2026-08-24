@@ -16,4 +16,4 @@ export PATH="$HOME/.local/bin:$PATH"
 cd "$SLURM_SUBMIT_DIR"
 # This is the exact config used to train the model reported in the paper
 # (checkpoint step 32000; see README for details).
-uv run train.py train=train_large model=large_model
+uv run scripts/train.py train=train_large model=large_model

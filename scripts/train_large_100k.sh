@@ -103,11 +103,11 @@ echo "=== training on $(hostname), chain link $((chain_count + 1)) ==="
 # real run hung for 13+ minutes with both ranks stuck in DDP setup (log_dir broadcast/barrier)
 # after exactly that kind of race, confirmed via py-spy showing genuine CPU-spinning (not an
 # I/O wait) at two different points in Lightning's setup path on the two ranks. Syncing once
-# up front, before `uv run train.py` ever starts, removes the race entirely.
+# up front, before `uv run scripts/train.py` ever starts, removes the race entirely.
 uv sync
 
 train_start=$(date +%s)
-uv run train.py train=train_large model=large_model train.trainer.max_steps=100000 \
+uv run scripts/train.py train=train_large model=large_model train.trainer.max_steps=100000 \
     train.trainer.devices=2 \
     train.trainer.accumulate_grad_batches=4 \
     preprocess.dataset.dataset_root=/data/user_data/xoy/LibriTTS_R/ \

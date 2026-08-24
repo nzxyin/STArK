@@ -65,6 +65,6 @@ if __name__ == "__main__":
     arg_parser.add_argument("--preprocessed_dir", type=str, required=True, help="Path to the preprocessed data directory")
     arg_parser.add_argument("--ema_output_dirname", type=str, default="emasrc",
                              help="Subdirectory name (under preprocessed_dir) to write normalized EMA features to. "
-                                  "LibriTTSDataset expects 'emasrc' (the default); LJSpeechDataset expects 'ema_preprocessed'.")
+                                  "LibriTTSDataset expects 'emasrc' (the default).")
     args = arg_parser.parse_args()
     process_sparc_data(args.sparc_dir, args.preprocessed_dir, args.ema_output_dirname)

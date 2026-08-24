@@ -12,15 +12,14 @@ train=train_large` (with the default `preprocess=default_preprocess`), evaluated
 `train_large`'s `max_steps=500000` × the model's 2% warmup fraction = 10,000 steps.
 
 ```bash
-python train.py train=train_large model=large_model
+python scripts/train.py train=train_large model=large_model
 ```
 
-`train_preempt.sh` runs this exact command on the `preempt` SLURM partition (checkpointed every
-2000 steps, auto-resumes from the last checkpoint so it's safe to preempt/requeue). Everything
-else under `conf/` — `small_model`, `spk_dur_cond_model`, `spk_full_cond_model`,
-`libritts_clean_360_preprocess`, `ljspeech_preprocess`, `ljspeech_large` (and `train.sh`, which
-runs the LJSpeech config) — are separate, unpublished experiments in this same codebase, **not**
-used for the Interspeech 2026 paper.
+[`scripts/train_preempt.sh`](scripts/train_preempt.sh) runs this exact command on the `preempt`
+SLURM partition (checkpointed every 2000 steps, auto-resumes from the last checkpoint so it's
+safe to preempt/requeue). Everything else under `conf/` — `small_model`, `spk_dur_cond_model`,
+`spk_full_cond_model`, `libritts_clean_360_preprocess` — is a separate, unpublished experiment in
+this same codebase, **not** used for the Interspeech 2026 paper.
 
 ## Data
 
@@ -99,31 +98,39 @@ for provenance/verification. Starting from raw LibriTTS-R audio + transcripts:
    `en+` model over each split's audio to produce a `{split}-sparc/emasrc/` and
    `{split}-sparc/spk_emb/` directory (15-dim EMA features per utterance, before pitch
    normalization). This step isn't scripted in this repo — see the SPARC repo directly.
-2. **Pitch normalization + speaker embedding staging** ([`process_sparc.py`](process_sparc.py),
-   driven by [`preprocess_sparc_libritts.sh`](preprocess_sparc_libritts.sh) as a SLURM array job
-   over all four LibriTTS-R splits): reads `{split}-sparc/emasrc/` (15-dim), log-normalizes pitch
-   by each utterance's median pitch (Eq. 1 in the paper), drops the periodicity channel to
-   produce the 14-dim target, and writes `{split}-preprocessed/emasrc/` +
+2. **Pitch normalization + speaker embedding staging**
+   ([`scripts/process_sparc.py`](scripts/process_sparc.py), driven by
+   [`scripts/preprocess_sparc_libritts.sh`](scripts/preprocess_sparc_libritts.sh) as a SLURM
+   array job over all four LibriTTS-R splits): reads `{split}-sparc/emasrc/` (15-dim),
+   log-normalizes pitch by each utterance's median pitch (Eq. 1 in the paper), drops the
+   periodicity channel to produce the 14-dim target, and writes `{split}-preprocessed/emasrc/` +
    `{split}-preprocessed/spk_emb/` + a `pitch_stats.json` (per-utterance median pitch, needed to
    denormalize predicted pitch back to a target speaker's range at inference time).
-3. **Phonemization** ([`ipa.py`](ipa.py) defines the IPA symbol set and phoneme id mapping; see
-   `preprocess.ipynb` for example driver code): text → phoneme sequence via Phonemizer/eSpeak-NG
-   → `{split}-preprocessed/phn/` (text) and `phn_ids/` (ids). `src/tts/g2p.py` (see
-   [`README.md`](README.md#inference)) reimplements this convention for standalone inference on
-   arbitrary text.
-4. **Alignment prior** (`src/tts/dataset.py`'s `BetaBinomialInterpolator`; see `preprocess.ipynb`
-   for example driver code): computed from `phn_ids/` length and `{split}-sparc/emasrc/` length
-   → `{split}-preprocessed/dur/`.
+3. **Phonemization**: text → phoneme sequence → `{split}-preprocessed/phn/` (text) and
+   `phn_ids/` (ids), via `ipa.py` (the IPA symbol set and phoneme-id mapping) and
+   [`src/tts/g2p.py`](src/tts/g2p.py) (Phonemizer/eSpeak-NG driver — reverse-engineered from the
+   training data, see its docstring for the exact convention). Run over a
+   `{split}-preprocessed/normalized_txt/` directory with:
+   ```bash
+   python scripts/preprocess.py phonemize --preprocessed_dir /path/to/{split}-preprocessed
+   ```
+   If you already have your own `phn/` text files (e.g. from a different G2P pipeline), skip
+   straight to id conversion: `python scripts/preprocess.py phn-to-ids --preprocessed_dir ...`.
+4. **Alignment prior** (`src/tts/dataset.py`'s `BetaBinomialInterpolator`), computed from
+   `phn_ids/` and the now-normalized `emasrc/` (i.e. **after** step 2) — run this once
+   `process_sparc.py` has produced `emasrc/` for the split:
+   ```bash
+   python scripts/preprocess.py durations --preprocessed_dir /path/to/{split}-preprocessed
+   ```
 5. Raw `.wav`/`original_txt`/`normalized_txt` are staged into `{split}-preprocessed/` directly
    from the LibriTTS-R corpus (same per-utterance ids).
 6. Each `{split}.json` is the list of utterance ids that have **all** of `dur`/`emasrc`/`spk_emb`
    successfully produced (a small number of utterances — a few dozen out of ~33k for
-   `train-clean-100` — fail SPARC extraction/alignment and are excluded).
-
-`process_sparc.py` is shared between the LibriTTS-R and LJSpeech pipelines; the two `Dataset`
-classes expect different EMA output directory names (`emasrc` vs `ema_preprocessed`), so pass
-`--ema_output_dirname` accordingly (`preprocess_sparc_libritts.sh` uses the `emasrc` default;
-`preprocess_sparc_ljspeech.sh` passes `--ema_output_dirname ema_preprocessed`).
+   `train-clean-100` — fail SPARC extraction/alignment and are excluded):
+   ```bash
+   python scripts/preprocess.py splits --preprocessed_dir /path/to/{split}-preprocessed \
+       --dataset_root /path/to/LibriTTS_R --split_name {split}
+   ```
 
 ## Paper evaluation
 
