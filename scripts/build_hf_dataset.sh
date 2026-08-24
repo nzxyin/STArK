@@ -23,5 +23,5 @@ cd "$SLURM_SUBMIT_DIR"
 uv run --no-project --with huggingface_hub python scripts/build_hf_dataset.py \
     --source_root "/data/user_data/xoy/LibriTTS_R" \
     --staging_root "/data/user_data/xoy/libritts-r-stark-staging" \
-    --repo_id "nzxyin/libritts-r-stark" \
+    --repo_id "Lab-MSP/libritts-r-stark" \
     --upload

@@ -16,7 +16,7 @@ import tts
 from tts import sparc as tts_sparc
 from tts.g2p import text_to_phoneme_ids
 
-DEFAULT_CHECKPOINT_REPO = "nzxyin/stark-large"
+DEFAULT_CHECKPOINT_REPO = "Lab-MSP/stark-large"
 DEFAULT_CHECKPOINT_FILENAME = "checkpoint.ckpt"
 DEFAULT_SPARC_MODEL = "en+"
 

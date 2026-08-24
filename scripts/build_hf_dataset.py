@@ -15,7 +15,7 @@ Usage:
     python scripts/build_hf_dataset.py \
         --source_root /data/user_data/xoy/LibriTTS_R \
         --staging_root /data/user_data/xoy/libritts-r-stark-staging \
-        --repo_id nzxyin/libritts-r-stark \
+        --repo_id Lab-MSP/libritts-r-stark \
         --upload
 """
 import argparse
@@ -81,7 +81,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source_root", required=True, help="Path to the live LibriTTS_R directory (e.g. /data/user_data/<user>/LibriTTS_R)")
     parser.add_argument("--staging_root", required=True, help="Where to stage the filtered, feature-only dataset before upload")
-    parser.add_argument("--repo_id", required=True, help="Target HF dataset repo, e.g. nzxyin/libritts-r-stark")
+    parser.add_argument("--repo_id", required=True, help="Target HF dataset repo, e.g. Lab-MSP/libritts-r-stark")
     parser.add_argument("--upload", action="store_true", help="Upload staging_root to the HF Hub after staging (requires HF_TOKEN)")
     args = parser.parse_args()
 

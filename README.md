@@ -37,7 +37,7 @@ brew install espeak-ng
 
 [`scripts/stark_cli.py`](scripts/stark_cli.py) is a standalone inference CLI — by default it
 downloads the trained checkpoint from the Hugging Face Hub
-([`nzxyin/stark-large`](https://huggingface.co/nzxyin/stark-large)), so no local training run or
+([`Lab-MSP/stark-large`](https://huggingface.co/Lab-MSP/stark-large)), so no local training run or
 Hydra config is needed. Pass `--checkpoint` to use a local `.ckpt` instead (e.g. one you trained
 yourself, see [`TRAINING.md`](TRAINING.md)).
 

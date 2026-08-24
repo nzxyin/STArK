@@ -1,10 +1,10 @@
-"""Turn a downloaded (sharded) nzxyin/libritts-r-stark snapshot into the flat
+"""Turn a downloaded (sharded) Lab-MSP/libritts-r-stark snapshot into the flat
 `{split}-preprocessed/{modality}/{id}.ext` layout `LibriTTSDataset` expects, via symlinks
 (no data is duplicated).
 
 Usage:
     from huggingface_hub import snapshot_download
-    snapshot_download(repo_id="nzxyin/libritts-r-stark", repo_type="dataset",
+    snapshot_download(repo_id="Lab-MSP/libritts-r-stark", repo_type="dataset",
                        local_dir="/path/to/downloaded")
 
     python scripts/materialize_hf_dataset.py \

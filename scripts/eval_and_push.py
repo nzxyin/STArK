@@ -5,7 +5,7 @@ split, reporting the same PCC/DTW metrics as `testing.ipynb`.
 Usage:
     python scripts/eval_and_push.py \
         --ckpt_path /data/user_data/xoy/articulatory-tts/ddp_slurm_large_model/ckpt/last.ckpt \
-        --repo_id nzxyin/stark-large \
+        --repo_id Lab-MSP/stark-large \
         --overrides model=large_model train=train_large \
                     preprocess.dataset.dataset_root=/data/user_data/xoy/LibriTTS_R/
 """
@@ -140,7 +140,7 @@ def evaluate(config, downloaded_ckpt_path, use_aligner_durations, dataset_root, 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ckpt_path", required=True, help="Local path to the trained .ckpt to push")
-    parser.add_argument("--repo_id", required=True, help="HF model repo, e.g. nzxyin/stark-large")
+    parser.add_argument("--repo_id", required=True, help="HF model repo, e.g. Lab-MSP/stark-large")
     parser.add_argument("--dataset_root", required=True, help="Path to preprocessed LibriTTS_R (for ground-truth emasrc)")
     parser.add_argument("--overrides", nargs="*", default=["model=large_model", "train=train_large"],
                          help="Additional Hydra overrides (model/train config selection)")

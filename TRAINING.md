@@ -41,7 +41,7 @@ duplicated, and no custom `datasets` loading script is needed:
 ```python
 from huggingface_hub import snapshot_download
 snapshot_download(
-    repo_id="nzxyin/libritts-r-stark",  # will move to a Lab-MSP namespace later
+    repo_id="Lab-MSP/libritts-r-stark",
     repo_type="dataset",
     local_dir="/path/to/libritts-r-stark-download",
 )

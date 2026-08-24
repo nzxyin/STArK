@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """STArK inference CLI: text-to-speech synthesis and articulatory kinematics visualization.
 
-By default, downloads the trained checkpoint from the Hugging Face Hub (nzxyin/stark-large) —
+By default, downloads the trained checkpoint from the Hugging Face Hub (Lab-MSP/stark-large) —
 no local training run needed. Use --checkpoint to point at a local .ckpt instead (e.g. one you
 trained yourself).
 
@@ -109,7 +109,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--checkpoint", default=None, help="Local .ckpt path (default: download from Hugging Face)")
-    common.add_argument("--hf-repo", default="nzxyin/stark-large", help="HF Hub model repo to download from")
+    common.add_argument("--hf-repo", default="Lab-MSP/stark-large", help="HF Hub model repo to download from")
     common.add_argument("--hf-filename", default="checkpoint.ckpt", help="Checkpoint filename within the HF repo")
     common.add_argument("--device", default=None, help="torch device (default: cuda if available, else cpu)")
 
