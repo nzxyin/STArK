@@ -1,7 +1,0 @@
-dataset:
-  dataset_name: "ljspeech"
-  dataset_root: "/path/to/LJSpeech-1.1/preprocessed/" # override with preprocess.dataset.dataset_root=... or edit in place
-  train_filename: "train.json"
-  dev_filename: "val.json"
-  test_filename: "test.json"
-  

@@ -18,7 +18,7 @@
 export PATH="$HOME/.local/bin:$PATH"
 cd "$SLURM_SUBMIT_DIR"
 
-uv run train.py train=train_large model=large_model \
+uv run scripts/train.py train=train_large model=large_model \
     train.trainer.devices=2 \
     train.trainer.max_steps=200 \
     train.trainer.val_check_interval=1000000 \

@@ -16,9 +16,10 @@ import sys
 import tempfile
 
 # tts/model.py does `from utils import ...`, a bare import of the repo-root utils.py — that
-# only resolves if the repo root is on sys.path. Running scripts directly (`python train.py`)
-# gets this for free; running a script from scripts/ (`python scripts/eval_and_push.py`) does
-# not, since Python puts the *script's* directory on sys.path[0], not the repo root.
+# only resolves if the repo root is on sys.path, which Python does not add automatically for a
+# script run from a subdirectory (it puts the *script's own* directory on sys.path[0] instead,
+# not the repo root) — so every entry-point script under scripts/ (this one, train.py,
+# process_sparc.py, preprocess.py, ...) needs this same fix.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np

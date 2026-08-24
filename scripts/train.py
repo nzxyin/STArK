@@ -1,4 +1,13 @@
 import os
+import sys
+
+# tts/model.py, tts/dataset.py etc. do `from utils import ...` / `from ipa import ...`, bare
+# imports off the repo root — only resolves if the repo root is on sys.path. Running this
+# script directly off the root used to get that for free; now that it lives in scripts/, Python
+# puts scripts/ on sys.path[0] instead, so it has to be added back explicitly. Same pattern as
+# the rest of scripts/*.py (e.g. eval_and_push.py).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import tts
 import torch
 import hydra
@@ -26,8 +35,6 @@ def train(config: DictConfig):
     dataset_name = config['preprocess']['dataset']['dataset_name']
     if dataset_name == 'libritts':
         datamodule = tts.LibriTTSDataModule(config)
-    elif dataset_name == 'ljspeech':
-        datamodule = tts.LJSpeechDataModule(config)
     else:
         raise ValueError(f"Unknown dataset_name: {dataset_name}")
     model = tts.LitTTS(config)
@@ -38,7 +45,7 @@ def train(config: DictConfig):
     ckpt_path = last_ckpt_path if os.path.exists(last_ckpt_path) else None
     trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_path, weights_only=False)
 
-@hydra.main(version_base=None, config_path="./conf", config_name="config")
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
 def main(config: DictConfig):
     print(OmegaConf.to_yaml(config))
     train(config)
