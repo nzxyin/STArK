@@ -18,10 +18,12 @@ export PATH="$HOME/.local/bin:$PATH"
 
 cd "$SLURM_SUBMIT_DIR"
 
+# Pushes the step-32000 paper checkpoint. Lab-MSP/stark-large must serve the paper model;
+# the 100k run (stark_large_100k) is kept only at that repo's step-100k tag (2026-11-05).
 uv run python scripts/eval_and_push.py \
-    --ckpt_path /data/user_data/xoy/articulatory-tts/stark_large_100k/ckpt/last.ckpt \
+    --ckpt_path "/data/user_data/xoy/articulatory-tts/ddp_slurm_large_model/ckpt/step=32000-val/loss=6.03.ckpt" \
     --repo_id Lab-MSP/stark-large \
     --dataset_root /data/user_data/xoy/LibriTTS_R/ \
     --overrides model=large_model train=train_large \
-        train.checkpoint.dirpath=/data/user_data/xoy/articulatory-tts/stark_large_100k/ckpt \
-        train.logger.save_dir=/data/user_data/xoy/articulatory-tts/stark_large_100k/log
+        train.checkpoint.dirpath=/data/user_data/xoy/articulatory-tts/ddp_slurm_large_model/ckpt \
+        train.logger.save_dir=/data/user_data/xoy/articulatory-tts/ddp_slurm_large_model/log
